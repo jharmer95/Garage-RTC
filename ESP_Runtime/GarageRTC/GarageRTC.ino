@@ -313,17 +313,7 @@ void TaskProcessWeb(void *pvParameters)
     }//switch
     
    vTaskDelay(60);  // one tick delay (15ms) in between reads for stability
- 
-/*
-    if(changeLightState)
-    {
-      //set the releay
-      lightOnState = !lightOnState; 
-      digitalWrite(RELAY_LIGHT, lightOnState ? LOW : HIGH);
-      Serial.println( buttonState[LIGHT]);
-      //clear the flag
-      changeLightState = false;
-    }*/
+
 
   }
 }
