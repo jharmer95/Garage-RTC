@@ -6,6 +6,11 @@
 
 #include <Wire.h>
 #include <LiquidCrystal_PCF8574.h>
+#include "WiFi.h"
+#include "AsyncUDP.h"
+
+const char * ssid = "dans";
+const char * password = "boycedog";
 
 
 // Defines to make the code more readable
@@ -53,9 +58,14 @@ int outputPins[] =
 #define CO_WARMUP    90000 // worst case CO sensor warm-up time
 #define DEBOUNCEMS   10    // debounce time in milliseconds
 #define MAXSWS        7    // Max number of switches in the system
+#define BTNHOLDMIL   1000  // Hold time for the garage door button
+#define HIGHTEMP     95    // High temperature alarm limit
+#define LOWTEMP      50    // Low Temperature alarm limit
+#define HIGHCO       20    // High CO Limit
+#define TEMPHYST      5    // Temp Hysteresis
+#define COHYST        5    // CO Hysteresis
 
-
-
+char testJSON[] = "{\"status\": {\"id\": 4,\"timestamp\": \"2019-03-31 11:49:14\",\"temp\": 66.94709171154325,\"alarm\": \"False\",\"light\": \"True\",\"door\": \"UP\",\"up_lim\": \"False\",\"down_lim\": \"False\",\"co\": 113.93413418694331}}";
 /* struct that contains data for IOT outbound UDP
 {
   "status": {
@@ -94,10 +104,12 @@ void TaskDoorOperation(void *pvParameters);
 void TaskReadSensors(void *pvParameters);
 void TaskUpdateDisplay(void *pvParameters);
 void TaskProcessWeb(void *pvParameters);
+void TaskNetwork(void *pvParameters);
 
 // general
 void initDisplay();
 void debounce();
+void initNetwork();
 //////////////////////////////////////////////////////////////
 
 // custom char since '\' does not exist on the display
@@ -141,6 +153,7 @@ bool alarmState = false;
 bool doorMovingState = false; 
 bool lightOnState = false;
 bool changeLightState = false; // Mailbox to change the light state
+bool Connected = false;
 
 // Shared Variables
 float temp = 23.4;
@@ -148,8 +161,12 @@ float co = 0.0;
 bool lim_up = false;
 bool lim_dn = false;
 bool lim_ob = false;
-
+AsyncUDP udp;
+  
 // system state variables
 // todo: pull this into a malloc memory segment to manage
 bool firstRun = true;
 bool heating = true;
+
+
+char buff[100];
