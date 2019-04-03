@@ -237,12 +237,23 @@ void TaskUpdateDisplay(void * pvParameters) {
     lcd.setCursor(2, 1);
     lcd.print(COmsg);
 
+
     if (doorMovingState) {
       lcd.setCursor(15, 3);
-      lcd.print("MOVE");
-    } else {
+      lcd.print("MOVE ");
+    } 
+    else if (buttonState[UP] == LOW)
+    {
       lcd.setCursor(15, 3);
-      lcd.print("STOP");
+      lcd.print("OPEN ");
+    } 
+    else if (buttonState[DOWN] == LOW) {
+      lcd.setCursor(15, 3);
+      lcd.print("CLOSE");
+    }  
+    else {
+      lcd.setCursor(15, 3);
+      lcd.print("STOP ");
     }
 
     if (lightOnState) {
@@ -268,6 +279,66 @@ void TaskUpdateDisplay(void * pvParameters) {
       lcd.setCursor(15, 1);
       lcd.print("NONE");
     }
+
+    //debug on the display
+    if (buttonState[UP]) {
+      lcd.setCursor(3, 3);
+      lcd.print("U");
+    } else
+    {
+      lcd.setCursor(3, 3);
+      lcd.print(" ");
+    }
+    if (buttonState[DOWN]) {
+      lcd.setCursor(2, 3);
+      lcd.print("D");
+    } else
+    {
+      lcd.setCursor(2, 3);
+      lcd.print(" ");
+    }     
+    if (buttonState[OBS]) {
+      lcd.setCursor(1, 3);
+      lcd.print("O");
+    } else
+    {
+      lcd.setCursor(1, 3);
+      lcd.print(" ");
+    }     
+    if (buttonState[ALARM]) {
+      lcd.setCursor(4, 3);
+      lcd.print("O");
+    } else
+    {
+      lcd.setCursor(4, 3);
+      lcd.print(" ");
+    }     
+    if (buttonState[DOOR]) {
+      lcd.setCursor(5, 3);
+      lcd.print("R");
+    } else
+    {
+      lcd.setCursor(5, 3);
+      lcd.print(" ");
+    }     
+    if (buttonState[STOP]) {
+      lcd.setCursor(6, 3);
+      lcd.print("S");
+    } else
+    {
+      lcd.setCursor(6, 3);
+      lcd.print(" ");
+    }     
+    if (buttonState[LIGHT]) {
+      lcd.setCursor(7, 3);
+      lcd.print("L");
+    } else
+    {
+      lcd.setCursor(7, 3);
+      lcd.print(" ");
+    }     
+    
+    
   }
 }
 
@@ -296,6 +367,8 @@ void TaskProcessWeb(void * pvParameters) {
   int state = 0;
   int buttonHoldTime;
 
+  alarmState = 0;
+  
   xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
@@ -329,6 +402,9 @@ void TaskProcessWeb(void * pvParameters) {
       break;
     } //switch
 
+
+    // Door Control State Machine
+    
     switch (state) {
     case 0:
       if (buttonState[DOOR] == LOW) // someone pressed the button
@@ -345,25 +421,57 @@ void TaskProcessWeb(void * pvParameters) {
         state = 2;
       }
       break;
-    case 2: // moving
-      if ((buttonState[UP] == LOW) || (buttonState[DOWN] == LOW)) // Limit switch Hit
+    case 2: // clear the limit switch
+      if (((buttonState[UP] == HIGH) && (buttonState[DOWN] == HIGH)) || (buttonState[STOP] == LOW) || (buttonState[OBS] == LOW))
+      {
+         state = 3; 
+      }
+      break;
+    case 3: // moving
+      if ((buttonState[UP] == LOW) || (buttonState[DOWN] == LOW) || (buttonState[STOP] == LOW) || (buttonState[OBS] == LOW)) // Limit switch Hit
       {
         buttonHoldTime = esp_log_timestamp() + BTNHOLDMIL;
         digitalWrite(RELAY_DOOR, LOW);
-        state = 3;
+        state = 4;
       }
       break;
-    case 3: // stop moving
+    case 4: // stop moving
       if (esp_log_timestamp() > buttonHoldTime) {
         digitalWrite(RELAY_DOOR, HIGH);
         doorMovingState = false;
         state = 0;
       }
       break;
+    default:
+      // todo: some error checking
+      break;
     }
 
-    sprintf(buff, "%d %d\n", state, buttonState[DOOR]);
-    Serial.print(buff);
+    // alarm state machine
+    switch (alarmState) {
+      case 0: // idle
+        if (( temp > HIGHTEMP ) || ( temp < LOWTEMP ) || ( co > HIGHCO ) )
+        { // ALARM condition
+          digitalWrite(RELAY_ALARM, LOW);
+          alarmState = 1;
+        }
+        break;
+       case 1: // ALARM
+        if (( temp < HIGHTEMP - TEMPHYST ) && ( temp > LOWTEMP + TEMPHYST ) && ( co < HIGHCO - COHYST ) )
+        { // ALARM condition clearing
+          digitalWrite(RELAY_ALARM, HIGH);
+          alarmState = 0;
+        }     
+        else if (buttonState[ALARM] == LOW)
+        { // Someone manually cleared the alarm
+          digitalWrite(RELAY_ALARM, HIGH);
+        }  
+        break;          
+    }
+
+    //e[DOOR]);
+    //Serial.print(buff);
+    //sprintf(buff, "%d %d\n", state, buttonStat
     vTaskDelay(60); // one tick delay (15ms) in between reads for stability
   }
 }

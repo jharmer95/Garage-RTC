@@ -9,8 +9,8 @@
 #include "WiFi.h"
 #include "AsyncUDP.h"
 
-const char * ssid = "ssid";
-const char * password = "password";
+const char * ssid = "dans";
+const char * password = "boycedog";
 
 
 // Defines to make the code more readable
@@ -38,6 +38,10 @@ const char * password = "password";
 #define DEBUG_T2     19
 #define DEBUG_T3     18
 #define DEBUG_T4      2
+
+#define TOP           0
+#define BOTTOM        1
+#define MIDDLE        2
 
 int outputPins[] = 
 {
