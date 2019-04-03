@@ -132,8 +132,14 @@ void TaskDoorOperation(void * pvParameters) {
 void TaskReadSensors(void * pvParameters) // This is a task.
 {
   (void) pvParameters;
+  TickType_t xLastWakeTime;
 
   for (;;) {
+    vTaskDelayUntil( & xLastWakeTime, 10);
+ 
+    digitalWrite(DEBUG_T2, HIGH);
+    
+  
     // read Analogs:
     int sensorValueT = analogRead(PIN_TEMP);
     int sensorValueCO = analogRead(PIN_CO);
@@ -160,7 +166,9 @@ void TaskReadSensors(void * pvParameters) // This is a task.
 
     //taskEXIT_CRITICAL();
 
-    vTaskDelay(60); // one tick delay (15ms) in between reads for stability
+    //vTaskDelay(60); // one tick delay (15ms) in between reads for stability
+    
+    digitalWrite(DEBUG_T2, LOW);
   }
 }
 
@@ -207,7 +215,7 @@ void TaskUpdateDisplay(void * pvParameters) {
   TickType_t xLastWakeTime;
 
   char TEMPmsg[6];
-  char COmsg[4];
+  //char COmsg[4];
   char DOORmsg[5];
 
   xLastWakeTime = xTaskGetTickCount();
@@ -216,7 +224,8 @@ void TaskUpdateDisplay(void * pvParameters) {
 
   for (;;) {
     // Wait for the next cycle.
-    vTaskDelayUntil( & xLastWakeTime, DELAY_PERIOD);
+    vTaskDelayUntil( & xLastWakeTime, 500);
+    
     lcd.setCursor(0, 3);
     if (var == 0) {
       lcd.write('|');
@@ -233,9 +242,24 @@ void TaskUpdateDisplay(void * pvParameters) {
     lcd.setCursor(2, 0);
     lcd.print(TEMPmsg);
 
-    dtostrf(co, 3, 0, COmsg);
+    /*dtostrf(co, 3, 0, COmsg);
     lcd.setCursor(2, 1);
     lcd.print(COmsg);
+    */
+    if (co > HIGHCO)
+    {
+      lcd.setCursor(2, 1);
+      lcd.print("HIGH");
+    } 
+    else if (co > MEDCO) {
+      lcd.setCursor(2, 1);
+      lcd.print("WARN");
+    }  
+    else {
+      lcd.setCursor(2, 1);
+      lcd.print("LOW ");
+    } 
+
 
 
     if (doorMovingState) {

@@ -65,9 +65,11 @@ int outputPins[] =
 #define BTNHOLDMIL   1000  // Hold time for the garage door button
 #define HIGHTEMP     95    // High temperature alarm limit
 #define LOWTEMP      50    // Low Temperature alarm limit
-#define HIGHCO       20    // High CO Limit
 #define TEMPHYST      5    // Temp Hysteresis
+#define HIGHCO       20    // High CO Limit
+#define MEDCO        10    // High CO Limit
 #define COHYST        5    // CO Hysteresis
+
 
 char testJSON[] = "{\"status\": {\"id\": 4,\"timestamp\": \"2019-03-31 11:49:14\",\"temp\": 66.94709171154325,\"alarm\": \"False\",\"light\": \"True\",\"door\": \"UP\",\"up_lim\": \"False\",\"down_lim\": \"False\",\"co\": 113.93413418694331}}";
 /* struct that contains data for IOT outbound UDP
