@@ -225,6 +225,7 @@ void TaskUpdateDisplay(void * pvParameters) {
   for (;;) {
     // Wait for the next cycle.
     vTaskDelayUntil( & xLastWakeTime, 500);
+    digitalWrite(DEBUG_T3, HIGH);
     
     lcd.setCursor(0, 3);
     if (var == 0) {
@@ -303,7 +304,8 @@ void TaskUpdateDisplay(void * pvParameters) {
       lcd.setCursor(15, 1);
       lcd.print("NONE");
     }
-
+    
+    /*
     //debug on the display
     if (buttonState[UP]) {
       lcd.setCursor(3, 3);
@@ -361,22 +363,34 @@ void TaskUpdateDisplay(void * pvParameters) {
       lcd.setCursor(7, 3);
       lcd.print(" ");
     }     
-    
-    
+    */
+    digitalWrite(DEBUG_T3, LOW);
   }
 }
 
 void TaskNetwork(void * pvParameters) {
   (void) pvParameters;
   TickType_t xLastWakeTime;
+  char wifiBuff[50] = "abcd";
+  char tempBuff[6];
+  char coBuff[6];
+  int rollCounter = 0;
 
   for (;;) {
     vTaskDelayUntil( & xLastWakeTime, DELAY_PERIOD);
 
     if (!Connected) {
-
     } else {
-      udp.broadcast(testJSON);
+      
+      // have to load via dtosttrf due to sprintf bug
+      dtostrf(temp, 5,1, tempBuff);
+      dtostrf(co, 5,1, coBuff);
+      sprintf(wifiBuff, "{\"status\": {\"id\": %d,\"timestamp\": \"2019-03-31 11:49:14\",\"temp\": %s,\"alarm\": \"%s\",\"light\": \"%s\",\"door\": \"%s\",\"up_lim\": \"%s\",\"down_lim\": \"%s\",\"co\": %s}}",
+                        rollCounter, tempBuff, alarmState ? "True" : "False" , lightOnState ? "True" : "False", "TODO", buttonState[UP] ? "True" : "False", buttonState[DOWN] ? "True" : "False", coBuff);
+         
+   
+      udp.broadcast(wifiBuff);
+      rollCounter++;
     }
 
   }
@@ -496,6 +510,6 @@ void TaskProcessWeb(void * pvParameters) {
     //e[DOOR]);
     //Serial.print(buff);
     //sprintf(buff, "%d %d\n", state, buttonStat
-    vTaskDelay(60); // one tick delay (15ms) in between reads for stability
+    //vTaskDelay(60); // one tick delay (15ms) in between reads for stability
   }
 }

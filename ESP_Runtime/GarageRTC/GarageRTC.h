@@ -8,10 +8,7 @@
 #include <LiquidCrystal_PCF8574.h>
 #include "WiFi.h"
 #include "AsyncUDP.h"
-
-const char * ssid = "SSID";
-const char * password = "password";
-
+#include "WIFI_AP.h"
 
 // Defines to make the code more readable
 // todo: move these into a pin array for scanning input/output with enums
@@ -72,6 +69,8 @@ int outputPins[] =
 
 
 char testJSON[] = "{\"status\": {\"id\": 4,\"timestamp\": \"2019-03-31 11:49:14\",\"temp\": 66.94709171154325,\"alarm\": \"False\",\"light\": \"True\",\"door\": \"UP\",\"up_lim\": \"False\",\"down_lim\": \"False\",\"co\": 113.93413418694331}}";
+
+
 /* struct that contains data for IOT outbound UDP
 {
   "status": {
