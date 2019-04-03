@@ -9,8 +9,8 @@
 #include "WiFi.h"
 #include "AsyncUDP.h"
 
-const char * ssid = "dans";
-const char * password = "boycedog";
+const char * ssid = "SSID";
+const char * password = "password";
 
 
 // Defines to make the code more readable
