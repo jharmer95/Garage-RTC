@@ -9,6 +9,13 @@
 #include "WiFi.h"
 #include "AsyncUDP.h"
 #include "WIFI_AP.h"
+#include "esp_system.h"
+
+
+// WatchDog config
+byte WatchDogBowl = 0;
+portMUX_TYPE wdMutex;
+//
 
 // Defines to make the code more readable
 // todo: move these into a pin array for scanning input/output with enums
@@ -67,42 +74,6 @@ int outputPins[] =
 #define MEDCO        10    // High CO Limit
 #define COHYST        5    // CO Hysteresis
 
-
-char testJSON[] = "{\"status\": {\"id\": 4,\"timestamp\": \"2019-03-31 11:49:14\",\"temp\": 66.94709171154325,\"alarm\": \"False\",\"light\": \"True\",\"door\": \"UP\",\"up_lim\": \"False\",\"down_lim\": \"False\",\"co\": 113.93413418694331}}";
-
-
-/* struct that contains data for IOT outbound UDP
-{
-  "status": {
-    "id": 4,
-    "timestamp": "2019-03-31 11:49:14",
-    "temp": 66.94709171154325,
-    "alarm": "False",
-    "light": "True",
-    "door": "UP",
-    "up_lim": "False",
-    "down_lim": "False",
-    "co": 113.93413418694331
-  }
-}
-*/
-/*
-struct udp_send_Xxxx 
-{
-  const char name[7] = "status";
-  int id = 4;
-  char timestamp[20] = "2019-03-31 11:49:14";
-  float temp = 0.0;
-  bool alarm = false;
-  bool light = false;
-  int door = 4;
-  bool up_lim = false;
-  bool down_lim = false;
-  float co = 0.0;
-};
-*/
-
-
 // function Prototypes ///////////////////////////////////////
 // Tasks
 void TaskDoorOperation(void *pvParameters);
@@ -113,6 +84,7 @@ void TaskNetwork(void *pvParameters);
 
 // general
 void initDisplay();
+void initWatchdog();
 void debounce();
 void initNetwork();
 //////////////////////////////////////////////////////////////

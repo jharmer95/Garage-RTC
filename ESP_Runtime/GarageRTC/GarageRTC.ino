@@ -2,6 +2,25 @@
 
 LiquidCrystal_PCF8574 lcd(0x27);
 
+
+
+////////////////////////////////////////////////////////////////////////
+
+const byte interruptPin = 12;
+volatile int interruptCounter = 0;
+int numberOfInterrupts = 0;
+ 
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
+// ISR example
+void IRAM_ATTR handleInterrupt() {
+  portENTER_CRITICAL_ISR(&mux);
+  interruptCounter++;
+  portEXIT_CRITICAL_ISR(&mux);
+}
+
+////////////////////////////////////////////////////////////////////////
+
 // the setup function runs once when you press reset or power the board
 void setup() {
 
@@ -32,6 +51,11 @@ void setup() {
   //  }
   //  
   // Now set up two tasks to run independently.
+
+  // WatchDogBowl mutex
+  wdMutex = portMUX_INITIALIZER_UNLOCKED;
+  //initWatchdog();
+  
   xTaskCreatePinnedToCore(
     TaskReadSensors, "TaskReadSensors" // A name just for humans
     , 1024 // This stack size can be checked & adjusted by reading the Stack Highwater
@@ -52,6 +76,25 @@ void setup() {
     TaskNetwork, "TaskNetwork", 1024 // Stack size
     , NULL, 1 // Priority
     , NULL, ARDUINO_RUNNING_CORE);
+
+  xTaskCreatePinnedToCore(
+    IdleTask, "IdleTask", 1024 // Stack size
+    , NULL, 1 // Priority
+    , NULL, ARDUINO_RUNNING_CORE);
+  
+}
+
+
+
+
+
+
+void IRAM_ATTR resetModule() {
+  esp_restart();
+}
+
+void initWatchdog() {
+  
 }
 
 // todo fix this so it will automatically reconnect
@@ -150,7 +193,6 @@ void TaskReadSensors(void * pvParameters) // This is a task.
     }
 
     // print out the value you read:
-    //Serial.println(buttonState[LIGHT]);
     float temp_buf = 0.0637 * sensorValueT - 40.116;
     float co_buf = 0.0527 * sensorValueCO - 72.728;
 
@@ -169,6 +211,11 @@ void TaskReadSensors(void * pvParameters) // This is a task.
     //vTaskDelay(60); // one tick delay (15ms) in between reads for stability
     
     digitalWrite(DEBUG_T2, LOW);
+    
+    // set my bit in the watchdog
+    taskENTER_CRITICAL(&wdMutex);
+    WatchDogBowl = WatchDogBowl|0x1 ;
+    taskEXIT_CRITICAL(&wdMutex);
   }
 }
 
@@ -305,66 +352,12 @@ void TaskUpdateDisplay(void * pvParameters) {
       lcd.print("NONE");
     }
     
-    /*
-    //debug on the display
-    if (buttonState[UP]) {
-      lcd.setCursor(3, 3);
-      lcd.print("U");
-    } else
-    {
-      lcd.setCursor(3, 3);
-      lcd.print(" ");
-    }
-    if (buttonState[DOWN]) {
-      lcd.setCursor(2, 3);
-      lcd.print("D");
-    } else
-    {
-      lcd.setCursor(2, 3);
-      lcd.print(" ");
-    }     
-    if (buttonState[OBS]) {
-      lcd.setCursor(1, 3);
-      lcd.print("O");
-    } else
-    {
-      lcd.setCursor(1, 3);
-      lcd.print(" ");
-    }     
-    if (buttonState[ALARM]) {
-      lcd.setCursor(4, 3);
-      lcd.print("O");
-    } else
-    {
-      lcd.setCursor(4, 3);
-      lcd.print(" ");
-    }     
-    if (buttonState[DOOR]) {
-      lcd.setCursor(5, 3);
-      lcd.print("R");
-    } else
-    {
-      lcd.setCursor(5, 3);
-      lcd.print(" ");
-    }     
-    if (buttonState[STOP]) {
-      lcd.setCursor(6, 3);
-      lcd.print("S");
-    } else
-    {
-      lcd.setCursor(6, 3);
-      lcd.print(" ");
-    }     
-    if (buttonState[LIGHT]) {
-      lcd.setCursor(7, 3);
-      lcd.print("L");
-    } else
-    {
-      lcd.setCursor(7, 3);
-      lcd.print(" ");
-    }     
-    */
     digitalWrite(DEBUG_T3, LOW);
+
+    // set my bit in the watchdog
+    taskENTER_CRITICAL(&wdMutex);
+    WatchDogBowl = WatchDogBowl|0x2 ;
+    taskEXIT_CRITICAL(&wdMutex);
   }
 }
 
@@ -393,6 +386,10 @@ void TaskNetwork(void * pvParameters) {
       rollCounter++;
     }
 
+    // set my bit in the watchdog
+    taskENTER_CRITICAL(&wdMutex);
+    WatchDogBowl = WatchDogBowl|0x4 ;
+    taskEXIT_CRITICAL(&wdMutex);
   }
 
 }
@@ -507,9 +504,44 @@ void TaskProcessWeb(void * pvParameters) {
         break;          
     }
 
-    //e[DOOR]);
-    //Serial.print(buff);
-    //sprintf(buff, "%d %d\n", state, buttonStat
-    //vTaskDelay(60); // one tick delay (15ms) in between reads for stability
+    // set my bit in the watchdog
+    taskENTER_CRITICAL(&wdMutex);
+    WatchDogBowl = WatchDogBowl|0x8;
+    taskEXIT_CRITICAL(&wdMutex);
+  }
+
+
+}
+
+
+
+void IdleTask(void * pvParameters) {
+  (void) pvParameters;
+  TickType_t xLastWakeTime;
+  byte watchDogBowl_buff = 0;
+  
+  const int wdtTimeout = 3000;  //time in ms to trigger the watchdog
+  hw_timer_t *timer = NULL;
+  timer = timerBegin(0, 80, true);                  //timer 0, div 80
+  timerAttachInterrupt(timer, &resetModule, true);  //attach callback
+  timerAlarmWrite(timer, wdtTimeout * 1000, false); //set time in us
+  timerAlarmEnable(timer);                          //enable interrupt
+
+
+  xLastWakeTime = xTaskGetTickCount();
+
+  // Check to see that the watchdog is being fed by all tasks
+  // no task is slower than the idle task
+  for (;;) {
+    vTaskDelayUntil( & xLastWakeTime, 1500);
+    
+    taskENTER_CRITICAL(&wdMutex);
+    Serial.println(WatchDogBowl, HEX);
+    if ( WatchDogBowl == 0xF)
+    {
+        timerWrite(timer, 0); //reset timer (feed watchdog)        
+    }
+    WatchDogBowl = 0;
+    taskEXIT_CRITICAL(&wdMutex);
   }
 }
