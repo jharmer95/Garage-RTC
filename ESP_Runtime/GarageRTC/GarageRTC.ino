@@ -68,7 +68,7 @@ void setup() {
     , NULL, ARDUINO_RUNNING_CORE);
 
   xTaskCreatePinnedToCore(
-    TaskProcessWeb, "TaskProcessWeb", 1024 // Stack size
+    TaskPriorityMachines, "TaskPriorityMachines", 1024 // Stack size
     , NULL, 1 // Priority
     , NULL, ARDUINO_RUNNING_CORE);
 
@@ -394,7 +394,7 @@ void TaskNetwork(void * pvParameters) {
 
 }
 
-void TaskProcessWeb(void * pvParameters) {
+void TaskPriorityMachines(void * pvParameters) {
   (void) pvParameters;
   TickType_t xLastWakeTime;
   int mode = 0;
@@ -509,8 +509,6 @@ void TaskProcessWeb(void * pvParameters) {
     WatchDogBowl = WatchDogBowl|0x8;
     taskEXIT_CRITICAL(&wdMutex);
   }
-
-
 }
 
 
@@ -526,7 +524,6 @@ void IdleTask(void * pvParameters) {
   timerAttachInterrupt(timer, &resetModule, true);  //attach callback
   timerAlarmWrite(timer, wdtTimeout * 1000, false); //set time in us
   timerAlarmEnable(timer);                          //enable interrupt
-
 
   xLastWakeTime = xTaskGetTickCount();
 

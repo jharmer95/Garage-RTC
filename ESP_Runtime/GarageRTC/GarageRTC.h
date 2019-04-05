@@ -79,7 +79,7 @@ int outputPins[] =
 void TaskDoorOperation(void *pvParameters);
 void TaskReadSensors(void *pvParameters);
 void TaskUpdateDisplay(void *pvParameters);
-void TaskProcessWeb(void *pvParameters);
+void TaskPriorityMachines(void *pvParameters);
 void TaskNetwork(void *pvParameters);
 
 // general
