@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>TestPage</title>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
+    <link href="../static/status.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+    <div id="statusContainer">
+        <div class="statusDiv">
+            <h3>Value 1</h3>
+            <input type="button" id="btn1" class="toggleBtn" value="ON">
+        </div>
+        <div class="statusDiv">
+                <h3>Value 2</h3>
+            <input type="button" id="btn2" class="toggleBtn" value="ON">
+        </div>
+        <div class="statusDiv">
+                <h3>Value 3</h3>
+            <input type="button" id="btn3" class="toggleBtn" value="ON">
+        </div>
+    </div>
+
+    <p><a href="{{ url_for('sessions') }}">Go Back to Home</a></p>
+
+    <script src="../static/status.js"></script>
+</body>
+
+</html>

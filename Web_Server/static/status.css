@@ -1,0 +1,13 @@
+.toggleBtn {
+    width: 80px;
+}
+
+.toggleBtn_ON {
+    background-color: lime;
+    color: black;
+}
+
+.toggleBtn_OFF {
+    background-color: red;
+    color: black;
+}
