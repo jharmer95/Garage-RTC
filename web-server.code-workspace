@@ -3,5 +3,8 @@
 		{
 			"path": "Web_Server"
 		}
-	]
+	],
+	"settings": {
+		"python.pythonPath": "${workspaceFolder}/env/bin/python"
+	}
 }
