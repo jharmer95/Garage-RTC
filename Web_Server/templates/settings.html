@@ -5,15 +5,13 @@
     <title>TestPage</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <!-- SocketIO (used for asynchronous callbacks) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
-    <!-- Local CSS -->
-    <link href="../static/status.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="../static/settings.css">
 </head>
 
 <body>
@@ -33,33 +31,30 @@
             <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                 <ul class="nav navbar-nav">
                     <li><a href="{{ url_for('sessions') }}">Home</a></li>
-                    <li><a href="#">Status</a></li>
-                    <li><a href="{{ url_for('settings') }}">Settings</a></li>
+                    <li><a href="{{ url_for('status') }}">Status</a></li>
+                    <li><a href="#">Settings</a></li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <div id="statusContainer" class="container-fluid">
-        <div class="statusDiv">
-            <h3>Door Status</h3>
-            <input type="button" id="doorStatus" class="toggleBtn t_open_closed" value="???">
-        </div>
-        <div class="statusDiv">
-            <h3>Light Status</h3>
-            <input type="button" id="lightStatus" class="toggleBtn t_on_off" value="???">
-        </div>
-        <div class="statusDiv">
-            <h3 id="tempStatus">Temperature:</h3>
-            <h4>???</h4>
-        </div>
-        <div class="statusDiv">
-            <h3 id="coStatus">CO Level:</h3>
-            <h4>???</h4>
-        </div>
+    <div id="settingsContainer" class="container-fluid">
+        <p id="errorMsg"></p>
+        <form id = "settingsForm" action="javascript: submitForm()">
+            Controller IP Address:<br>
+            <input type="text" name="udpIP" id="udpIP" class="validText" placeholder="IP Address (e.g. 192.168.0.2)">
+            <input type="text" name="udpPort" id="udpPort" class="validText" style="width:80px;" placeholder="Port"><br>
+            <!-- <input type="button" name="scanBtn" id="scanBtn" value="Scan"><br> -->
+
+            Screen Cycle Time:<br>
+            <input type="text" name="screenCycle" id="screenCycle" class="validText"><br>
+
+            <br>
+            <input type="submit" value="Save">
+        </form>
     </div>
 
-    <script src="../static/status.js"></script>
+    <script src="../static/settings.js"></script>
 </body>
 
 </html>

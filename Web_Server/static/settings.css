@@ -1,0 +1,15 @@
+.validText {
+    background-color: whitesmoke;
+}
+
+.invalidText {
+    background-color: palevioletred;
+}
+
+.octicon {
+    color: white;
+}
+
+svg {
+    fill: currentColor;
+}

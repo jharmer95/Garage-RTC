@@ -2,14 +2,27 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 from datetime import datetime
 import json
+import socket
 import sqlite3
+import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'vnkdjnfjknfl1232#'
 socketio = SocketIO(app)
-conn = sqlite3.connect('data/settings.db')
 
-TEST_VALS = [True, False, True]
+STATUS_VALS = [{'name': 'doorStatus', 'value': True}, {'name': 'lightStatus', 'value': False}, {'name': 'tempStatus', 'value': 98.6}, {'name': 'coStatus', 'value': 4}]
+SETTING_VALS = []
+BUF_STATUS_VALS = [{'name': 'doorStatus', 'value': True}, {'name': 'lightStatus', 'value': False}, {'name': 'tempStatus', 'value': 98.6}, {'name': 'coStatus', 'value': 4}]
+BUF_SETTING_VALS = []
+UDP_IP = ''
+UDP_PORT = 0
+UDP_TIMEOUT = 0.0
+
+
+@app.before_first_request
+def init():
+    loadLocalSettings()
+
 
 @app.route('/')
 def sessions():
@@ -25,102 +38,190 @@ def status():
     return render_template('status.html')
 
 
-@app.route('/chat')
-def chat():
-    return render_template('chat_example.html')
+@app.route('/settings')
+def settings():
+    return render_template('settings.html')
 
 
-@socketio.on('my event')
-def handle_my_custom_event(jStr, methods=['GET', 'POST']):
-    print('received my event: ' + str(jStr))
-    socketio.emit('my response', jStr, callback=messageReceived)
+@socketio.on('getStatus')
+def handle_getStatus_event():
+    global STATUS_VALS
+
+    jStr = json.dumps(STATUS_VALS)
+    socketio.emit('updateStatus', jStr, callback=messageReceived)
 
 
-@socketio.on('toggle')
-def handle_toggle_event(jStr):
+@socketio.on('refreshStatus')
+def handle_refreshStatus_event():
+    receiveStatus()
+
+
+@socketio.on('setStatus')
+def handle_setStatus_event(jStr):
+    global STATUS_VALS
+
     print(jStr)
-    setPins(jStr)
-    socketio.emit('update pins', jStr, callback=messageReceived)
 
-
-@socketio.on('pull pins')
-def handle_pull_pins_event():
-    global TEST_VALS
-
-    updatePins()
-
-    pinDict = [{'id': 'btn1', 'val': TEST_VALS[0]}, {'id': 'btn2', 'val': TEST_VALS[1]}, {'id': 'btn3', 'val': TEST_VALS[2]}]
-
-    jStr = json.dumps(pinDict)
-    print(jStr)
-    socketio.emit('update pins', jStr, callback=messageReceived)
-
-
-@socketio.on('fetch settings')
-def handle_fetch_settings_event():
-    global conn
-
-    c = conn.cursor()
-    c.execute('SELECT * FROM settings')
-    jStr = json.dumps(c.fetchall())
-    socketio.emit('send settings', jStr, callback=messageReceived)
-
-
-@socketio.on('change settings')
-def handle_change_settings_event(jStr):
-    global conn
-
-    c = conn.cursor()
-    
     for setting in jStr:
         name = setting['name']
         val = setting['value']
-        c.execute('UPDATE settings SET value=? WHERE name=?', val, name)
-    
+        setStatus(name, val)
+
+    sendStatus()
+    receiveStatus()
+
+
+@socketio.on('getSettings')
+def handle_getSettings_event():
+    global SETTING_VALS
+
+    jStr = json.dumps(SETTING_VALS)
+    socketio.emit('updateSettings', jStr, callback=messageReceived)
+
+
+@socketio.on('setSettings')
+def handle_setSettings_event(jStr):
+    global SETTING_VALS
+
+    conn = sqlite3.connect('data/settings.db')
+
+    print('Received settings request: ' + str(jStr))
+    c = conn.cursor()
+
+    for setting in jStr:
+        name = setting['name']
+        val = setting['value']
+        print(val + ' ' + name)
+        c.execute('UPDATE settings SET value=? WHERE name=?', [val, name])
+
     conn.commit()
+    c.execute('SELECT * FROM settings')
+    SETTING_VALS = sqlToDictList(c.fetchall())
+    conn.close()
+    sendSettings()
 
 
-def updatePins():
-    global TEST_VALS
+def sqlToDictList(results):
+    outList = []
 
-    with open('data/pins.txt') as fp:
-        lineCount = 0
-        for line in fp:
-            if lineCount > len(TEST_VALS):
-                break
-            TEST_VALS[lineCount] = bool(int(line))
-            lineCount += 1
+    for r in results:
+        dictObj = {}
+        dictObj['name'] = r[0]
+        dictObj['value'] = r[1]
+        outList.append(dictObj)
 
-
-def setPins(jStr):
-    global TEST_VALS
-
-    lineNum = None
-
-    if jStr['id'] == 'btn1':
-        lineNum = 0
-    elif jStr['id'] == 'btn2':
-        lineNum = 1
-    elif jStr['id'] == 'btn3':
-        lineNum = 2
-
-    if lineNum == None:
-        return
-
-    TEST_VALS[lineNum] = jStr['val']
-    writeVals()
+    return outList
 
 
-def writeVals():
-    global TEST_VALS
+def loadLocalSettings():
+    global SETTING_VALS
 
-    wrtStr = ''
+    conn = sqlite3.connect('data/settings.db')
+    c = conn.cursor()
+    c.execute('SELECT * FROM settings')
+    valStr = c.fetchall()
+    print(valStr)
+    SETTING_VALS = sqlToDictList(valStr)
+    conn.close()
+    print(SETTING_VALS)
+    updateLocalSettings()
 
-    for val in TEST_VALS:
-        wrtStr += str(int(val)) + '\n'
 
-    with open('data/pins.txt', 'w') as fp:
-        fp.write(wrtStr)
+def updateLocalSettings():
+    global SETTING_VALS
+    global UDP_IP
+    global UDP_PORT
+    global UDP_TIMEOUT
+
+    UDP_IP = str(getSetting('udpIP'))
+    UDP_PORT = int(getSetting('udpPort'))
+    UDP_TIMEOUT = float(getSetting('udpTimeout'))
+
+
+def getSetting(name):
+    global SETTING_VALS
+
+    for val in SETTING_VALS:
+        if val['name'] == name:
+            return val['value']
+
+    return None
+
+
+def setStatus(name, value):
+    global BUF_STATUS_VALS
+
+    for val in BUF_STATUS_VALS:
+        if val['name'] == name:
+            val['value'] = value
+
+
+def sendSettings():
+    global SETTING_VALS
+    global UDP_IP
+    global UDP_PORT
+
+    jStr = json.dumps(SETTING_VALS)
+    print('Sending message: "' + jStr + '" to IP: ' +
+        str(UDP_IP) + ':' + str(UDP_PORT))
+
+    cmdStr = '{"cmd": "setStatus", "arg": "' + jStr + '"}'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(cmdStr.encode('utf-8'), (UDP_IP, UDP_PORT))
+
+
+def receiveSettings():
+    global SETTING_VALS
+    global UDP_IP
+    global UDP_PORT
+    global UDP_TIMEOUT
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(UDP_TIMEOUT)
+
+    sock.sendto('{"cmd": "getSettings", "arg": ""}'.encode('utf-8'), (UDP_IP, UDP_PORT))
+
+    try:
+        data, server = sock.recvfrom(1024)
+        print("data: " + str(data) + "\nserver: " + str(server))
+        SETTING_VALS = data
+        updateLocalSettings()
+    except socket.timeout:
+        print('REQUEST TIMED OUT!')
+
+
+def receiveStatus():
+    global STATUS_VALS
+    global UDP_IP
+    global UDP_PORT
+    global UDP_TIMEOUT
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(UDP_TIMEOUT)
+
+    mesg = '{"cmd": "getStatus", "arg": ""}'
+    print('Sending message to ' + str(UDP_IP) + ':' + str(UDP_PORT))
+    sock.sendto(mesg.encode('utf-8'), (UDP_IP, UDP_PORT))
+    try:
+        data, server = sock.recvfrom(1024)
+        print("data: " + str(data) + "\nserver: " + str(server))
+        STATUS_VALS = data
+    except socket.timeout:
+        print('REQUEST TIMED OUT!')
+
+
+def sendStatus():
+    global BUF_STATUS_VALS
+    global UDP_IP
+    global UDP_PORT
+
+    jStr = json.dumps(BUF_STATUS_VALS)
+    print('Sending message: "' + jStr + '" to IP: ' +
+        str(UDP_IP) + ':' + str(UDP_PORT))
+
+    cmdStr = '{"cmd": "setStatus", "arg": "' + jStr + '"}'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(cmdStr.encode('utf-8'), (UDP_IP, UDP_PORT))
 
 
 if __name__ == '__main__':

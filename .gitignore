@@ -1,2 +1,5 @@
 *.o
 !*.keep
+Web_Server/__pycache__/**
+Web_Server/env/**
+Web_Server/.mypy_cache/**
