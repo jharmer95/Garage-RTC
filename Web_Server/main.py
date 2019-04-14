@@ -202,8 +202,12 @@ def receiveStatus():
     mesg = '{"cmd": "getStatus", "arg": ""}'
     print('Sending message to ' + str(UDP_IP) + ':' + str(UDP_PORT))
     sock.sendto(mesg.encode('utf-8'), (UDP_IP, UDP_PORT))
+    sock.close()
     try:
-        data, server = sock.recvfrom(1024)
+        sock2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock2.settimeout(UDP_TIMEOUT)
+        sock2.bind(('', UDP_PORT))
+        data, server = sock2.recvfrom(1024)
         print("data: " + str(data) + "\nserver: " + str(server))
         STATUS_VALS = data
     except socket.timeout:

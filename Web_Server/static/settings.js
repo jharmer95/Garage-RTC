@@ -38,9 +38,10 @@ function submitForm() {
 
     var portForm = document.getElementById("udpPort");
     var port = parseInt(portForm.value);
+    console.log(port);
 
     if (port > 0 && port < 65536) {
-        socket.emit("setSettings", [{"name" : "udpPort", "value": port}]);
+        socket.emit("setSettings", [{"name" : "udpPort", "value": portForm.value}]);
         $(cycleTimeForm).addClass("validText").removeClass("invalidText");
         document.getElementById("errorMsg").innerHTML = "";
     }
@@ -67,6 +68,9 @@ socket.on("updateSettings", function (msg) {
     objs = JSON.parse(msg);
     for (var i = 0; i < objs.length; ++i) {
         var itm = document.getElementById(objs[i].name);
+        if (itm == null) {
+            continue;
+        }
         switch (itm.type) {
             case "text":
                 itm.value = objs[i].value;
