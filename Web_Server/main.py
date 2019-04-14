@@ -10,9 +10,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'vnkdjnfjknfl1232#'
 socketio = SocketIO(app)
 
-STATUS_VALS = [{'name': 'doorStatus', 'value': True}, {'name': 'lightStatus', 'value': False}, {'name': 'tempStatus', 'value': 98.6}, {'name': 'coStatus', 'value': 4}]
+STATUS_VALS = []
 SETTING_VALS = []
-BUF_STATUS_VALS = [{'name': 'doorStatus', 'value': True}, {'name': 'lightStatus', 'value': False}, {'name': 'tempStatus', 'value': 98.6}, {'name': 'coStatus', 'value': 4}]
+BUF_STATUS_VALS = []
 BUF_SETTING_VALS = []
 UDP_IP = ''
 UDP_PORT = 0
@@ -96,7 +96,7 @@ def handle_setSettings_event(jStr):
 
     conn.commit()
     c.execute('SELECT * FROM settings')
-    SETTING_VALS = sqlToDictList(c.fetchall())
+    BUF_SETTING_VALS = sqlToDictList(c.fetchall())
     conn.close()
     sendSettings()
 
@@ -114,21 +114,18 @@ def sqlToDictList(results):
 
 
 def loadLocalSettings():
-    global SETTING_VALS
+    global BUF_SETTING_VALS
 
     conn = sqlite3.connect('data/settings.db')
     c = conn.cursor()
     c.execute('SELECT * FROM settings')
     valStr = c.fetchall()
-    print(valStr)
-    SETTING_VALS = sqlToDictList(valStr)
+    BUF_SETTING_VALS = sqlToDictList(valStr)
     conn.close()
-    print(SETTING_VALS)
     updateLocalSettings()
 
 
 def updateLocalSettings():
-    global SETTING_VALS
     global UDP_IP
     global UDP_PORT
     global UDP_TIMEOUT
@@ -157,11 +154,11 @@ def setStatus(name, value):
 
 
 def sendSettings():
-    global SETTING_VALS
+    global BUF_SETTING_VALS
     global UDP_IP
     global UDP_PORT
 
-    jStr = json.dumps(SETTING_VALS)
+    jStr = json.dumps(BUF_SETTING_VALS)
     print('Sending message: "' + jStr + '" to IP: ' +
         str(UDP_IP) + ':' + str(UDP_PORT))
 
