@@ -1,20 +1,32 @@
+/*****************************************************************************
+*         File: GarageRTC.h
+*  Description: Implements a real time IoT Garage Door controller.  See 
+*               https://github.com/jharmer95/Garage-RTC/ for details on the 
+*               Open GarageRTC project.
+*      Authors: Daniel Zajac,  danzajac@umich.edu
+*               Jackson Harmer, harmer@umich.edu
+*
+*****************************************************************************/
 #if CONFIG_FREERTOS_UNICORE
 #	define ARDUINO_RUNNING_CORE 0
 #else
 #	define ARDUINO_RUNNING_CORE 1
 #endif
 
-#include <Wire.h>
+/*****************************************************************************
+*     Include libraries
+*
+*****************************************************************************/
+//TODO:DEADCODE #include <Wire.h>
 #include <LiquidCrystal_PCF8574.h>
 #include "WiFi.h"
 #include "AsyncUDP.h"
 #include "WIFI_AP.h"
 #include "esp_system.h"
 
-// WatchDog config
-byte WatchDogBowl = 0;
-portMUX_TYPE wdMutex;
-
+/*****************************************************************************
+*     Defines to make addressing Pins easier
+*****************************************************************************/
 // Defines to make the code more readable
 // TODO: move these into a pin array for scanning input/output with enums
 #define PIN_TEMP A7
@@ -47,21 +59,31 @@ portMUX_TYPE wdMutex;
 
 int outputPins[] = { RELAY_DOOR, RELAY_ALARM, RELAY_LIGHT, RELAY_AUX, DEBUG_T1, DEBUG_T2, DEBUG_T3, DEBUG_T4 };
 
-// System parameters
-#define DELAY_PERIOD 1000
-#define MED_PRI_TASK_DELAY 100
-#define CO_WARMUP 90000 // worst case CO sensor warm-up time
-#define DEBOUNCEMS 10   // debounce time in milliseconds
-#define MAXSWS 7        // Max number of switches in the system
-#define BTNHOLDMIL 1000 // Hold time for the garage door button
-#define HIGHTEMP 95     // High temperature alarm limit
-#define LOWTEMP 50      // Low Temperature alarm limit
-#define TEMPHYST 5      // Temp Hysteresis
-#define HIGHCO 20       // High CO Limit
-#define MEDCO 10        // High CO Limit
-#define COHYST 5        // CO Hysteresis
+/*****************************************************************************
+*     Static system parameters
+*
+*****************************************************************************/
+#define LOW_PRI_TASK_DELAY 1000 // Low priority loop time in mS
+#define MED_PRI_TASK_DELAY 100  // Medium Priority Task Loop in mS
+#define HIGH_PRI_TASK_DELAY 10  // High Prioirty Task Loop in mS
+#define CO_WARMUP 90000         // worst case CO sensor warm-up time
+#define DEBOUNCEMS 10           // debounce time in milliseconds
+#define MAXSWS 7                // Max number of switches in the system
+#define MAXIO 8                 // Max number of IO pins
+#define BTNHOLDMIL 1000         // Hold time for the garage door button
+#define HIGHTEMP 95             // High temperature alarm limit
+#define LOWTEMP 50              // Low Temperature alarm limit
+#define TEMPHYST 5              // Temp Hysteresis
+#define HIGHCO 20               // High CO Limit
+#define MEDCO 10                // High CO Limit
+#define COHYST 5                // CO Hysteresis
+#define SERIALSPEED 115200      // Serial Baud Rate
+#define WDTIMEOUT 3000			// Watch Dog Timeout 
 
-// function Prototypes ///////////////////////////////////////
+/*****************************************************************************
+*     Function prototypes 
+*
+*****************************************************************************/
 // Tasks
 void TaskDoorOperation(void* pvParameters);
 void TaskReadSensors(void* pvParameters);
@@ -72,15 +94,24 @@ void TaskNetwork(void* pvParameters);
 // general
 void initDisplay();
 void initWatchdog();
-void debounce();
-void initNetwork();
-//////////////////////////////////////////////////////////////
+void debounce(int pinIndex, bool bouncing[], int buttonState[], int stopTime[]);
+void initNetwork(AsyncUDP &udp);
+
+/*****************************************************************************
+*     Blobal Variables
+*
+*****************************************************************************/
 
 // custom char since '\' does not exist on the display
-byte customBackslash[8] = { 0b00000, 0b10000, 0b01000, 0b00100, 0b00010, 0b00001, 0b00000, 0b00000 };
-
-// TODO: move these out of globals
-int switches[MAXSWS] = { BUTTON_ALARM, BUTTON_DOOR, BUTTON_STOP, BUTTON_LIGHT, LIMSW_UP, LIMSW_DOWN, LIMSW_OBS };
+static byte customBackslash[8] = { 0b00000, 0b10000, 0b01000, 0b00100, 0b00010, 0b00001, 0b00000, 0b00000 };
+ 
+static int g_switches[MAXSWS] = { BUTTON_ALARM, 
+							BUTTON_DOOR, 
+							BUTTON_STOP, 
+							BUTTON_LIGHT, 
+							LIMSW_UP, 
+							LIMSW_DOWN, 
+							LIMSW_OBS };
 
 // Needs to match order above.
 enum SWITCH_INDEX
@@ -94,26 +125,28 @@ enum SWITCH_INDEX
 	OBS
 };
 
-int stopTime[MAXSWS] = { 0, 0, 0, 0, 0, 0, 0 };
-bool bouncing[MAXSWS] = { false, false, false, false, false, false, false };
-int buttonState[MAXSWS] = { 1, 1, 1, 1, 1, 1, 1 };
-bool alarmState = false;
-bool doorMovingState = false;
-bool lightOnState = false;
-bool changeLightState = false; // Mailbox to change the light state
-bool Connected = false;
+byte g_WatchDogBowl = 0;        // Watchdog Feed bowl
+portMUX_TYPE g_wdMutex;         // Mux to protect the watchdog bowl
+portMUX_TYPE g_sharedMemMutex;  // mutex to protect the shared globals
+portMUX_TYPE g_serialMutex;     // Mux to protect the serial device
+
+// todo: convert buttons to byte
+int  g_buttonState[MAXSWS] = { 1, 1, 1, 1, 1, 1, 1 };
+bool g_alarmState = false;
+bool g_doorMovingState = false;
+bool g_lightOnState = false;
+bool g_Connected = false;
 
 // Shared Variables
-float temp = 23.4;
-float co = 0.0;
-bool lim_up = false;
-bool lim_dn = false;
-bool lim_ob = false;
-AsyncUDP udp;
+float g_temp = 23.4;
+float g_co = 0.0;
+bool  g_lim_up = false;
+bool  g_lim_dn = false;
+bool  g_lim_ob = false;
 
-// system state variables
-// todo: pull this into a malloc memory segment to manage
-bool firstRun = true;
-bool heating = true;
 
-char buff[100];
+
+bool g_firstRun = true;  // Indicating the system is just starting up
+bool g_heating = true;   // Indicates the CO sensor is still heating
+
+// todo: think this is dead code char g_buff[100];

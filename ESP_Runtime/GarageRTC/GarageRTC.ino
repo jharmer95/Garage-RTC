@@ -1,230 +1,244 @@
+/*****************************************************************************
+*         File: GarageRTC.ino
+*  Description: Implements a real time IoT Garage Door controller.  See 
+*               https://github.com/jharmer95/Garage-RTC/ for details on the 
+*               Open GarageRTC project.
+*      Authors: Daniel Zajac,  danzajac@umich.edu
+*               Jackson Harmer, harmer@umich.edu
+*
+*****************************************************************************/
 #include "GarageRTC.h"
 
+// configure global for the LCD port
 LiquidCrystal_PCF8574 lcd(0x27);
 
-const byte interruptPin = 12;
-volatile int interruptCounter = 0;
-int numberOfInterrupts = 0;
-
-portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-
-// ISR example
-void IRAM_ATTR handleInterrupt()
-{
-	portENTER_CRITICAL_ISR(&mux);
-	++interruptCounter;
-	portEXIT_CRITICAL_ISR(&mux);
-}
-
-////////////////////////////////////////////////////////////////////////
-
-// the setup function runs once when you press reset or power the board
+/*****************************************************************************
+*     Function: void setup( void )
+*  Description: This function is run once at startup after reset.  It sets up
+*               hardware and initalizes the system. 
+*
+*****************************************************************************/
 void setup()
 {
-	// initialize serial communication at 115200 bits per second:
-	Serial.begin(115200);
+	// initialize serial communication
+	Serial.begin(SERIALSPEED);
+	
+  // Setup the serial mutex
+	g_serialMutex = portMUX_INITIALIZER_UNLOCKED;
 
 	// initalize digital output pins
-	for (int i = 0; i < 8; ++i)
+	for (int i = 0; i < MAXIO; ++i)
 	{
-		digitalWrite(outputPins[i], HIGH);
-		pinMode(outputPins[i], OUTPUT);
+		digitalWrite(outputPins[i], HIGH);  // set the pins for inital pullup
+		pinMode(outputPins[i], OUTPUT);     // Assign them the output state
 	}
 
 	// initalize digital input pins
 	for (int i = 0; i < MAXSWS; ++i)
 	{
-		pinMode(switches[i], INPUT_PULLUP);
+		pinMode(g_switches[i], INPUT_PULLUP);  // Setup as input with pull up
 	}
 
-	initDisplay();
-	initNetwork();
+    // setup the display
+	//TODO: DEADCODE Wire.begin();
+	//TODO: DEADCODE Wire.beginTransmission(0x27); // configure the SPI
 
-	// TODO: add serial semaphore
+	lcd.begin(20, 4);       // setup the LCD dims
+	lcd.setBacklight(128);  // set the backlighting
+	lcd.home();             // send the cursor home
+	lcd.clear();            // clear the display
 
-	//  if ( xLightChangeSemaphore == NULL )
-	//  {
-	//    xLightChangeSemaphore = xSemaphoreCreateMutex();
-	//    if ( ( xLightChangeSemaphore ) != NULL )
-	//      xSemaphoreGive( ( xSerialSemaphore ) );
-	//  }
-	//
-	// Now set up two tasks to run independently.
-
-	// WatchDogBowl mutex
-	wdMutex = portMUX_INITIALIZER_UNLOCKED;
-	//initWatchdog();
-
-	xTaskCreatePinnedToCore(TaskReadSensors, "TaskReadSensors", // A name just for humans
-		1024, // This stack size can be checked & adjusted by reading the Stack Highwater
-		NULL, 2, // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
-		NULL, ARDUINO_RUNNING_CORE);
-
-	xTaskCreatePinnedToCore(TaskUpdateDisplay, "TaskUpdateDisplay", 1024, // Stack size
-		NULL, 1, // Priority
-		NULL, ARDUINO_RUNNING_CORE);
-
-	xTaskCreatePinnedToCore(TaskPriorityMachines, "TaskPriorityMachines", 1024, // Stack size
-		NULL, 1, // Priority
-		NULL, ARDUINO_RUNNING_CORE);
-
-	xTaskCreatePinnedToCore(TaskNetwork, "TaskNetwork", 1024, // Stack size
-		NULL, 1, // Priority
-		NULL, ARDUINO_RUNNING_CORE);
-
-	xTaskCreatePinnedToCore(IdleTask, "IdleTask", 1024, // Stack size
-		NULL, 1, // Priority
-		NULL, ARDUINO_RUNNING_CORE);
-}
-
-void IRAM_ATTR resetModule()
-{
-	esp_restart();
-}
-
-void initWatchdog() {}
-
-// TODO: fix this so it will automatically reconnect
-void initNetwork()
-{
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(ssid, password);
-
-	if (WiFi.waitForConnectResult() != WL_CONNECTED)
-	{
-		Serial.println("WiFi Failed");
-		Connected = false;
-	}
-	else
-	{
-		Connected = true;
-
-		if (udp.listen(1234))
-		{
-			Serial.print("UDP Listening on IP: ");
-			Serial.println(WiFi.localIP());
-		}
-	}
-}
-
-void initDisplay()
-{
-	Wire.begin();
-	Wire.beginTransmission(0x27);
-
-	lcd.begin(20, 4);
-	lcd.setBacklight(128);
-	lcd.home();
-	lcd.clear();
-
-	// create a new character
+	// create a new character, display missing backslash
 	lcd.createChar(1, customBackslash);
 
 	// set the static display elements
 	lcd.setCursor(0, 0);
-	lcd.print("T:XXX.X    NET:NONE");
+	lcd.print("T:         NET:     ");
 	lcd.setCursor(0, 1);
-	lcd.print("C:XXX%  SYSTEM:ALARM");
+	lcd.print("C:      SYSTEM:    ");
 	lcd.setCursor(0, 2);
-	lcd.print("         LIGHT:OFF");
+	lcd.print("         LIGHT:     ");
 	lcd.setCursor(0, 3);
-	lcd.print("          DOOR:OPEN");
+	lcd.print("          DOOR:     ");
+ 
+  // Share Memory mutex
+  g_sharedMemMutex = portMUX_INITIALIZER_UNLOCKED;
+  
+  // g_WatchDogBowl mutex
+  g_wdMutex = portMUX_INITIALIZER_UNLOCKED;
+  
+	xTaskCreatePinnedToCore(TaskReadSensors, "TaskReadSensors", 
+		1024, 
+		NULL, 3, // Priority 3 is the highest
+		NULL, ARDUINO_RUNNING_CORE);
+
+	xTaskCreatePinnedToCore(TaskUpdateDisplay, "TaskUpdateDisplay", 2048, // Stack size
+		NULL, 1, // Priority
+		NULL, ARDUINO_RUNNING_CORE);
+
+	xTaskCreatePinnedToCore(TaskPriorityMachines, "TaskPriorityMachines", 1024, // Stack size
+		NULL, 2, // Priority
+		NULL, ARDUINO_RUNNING_CORE);
+
+	xTaskCreatePinnedToCore(TaskNetwork, "TaskNetwork", 4096, // Stack size
+		NULL, 1, // Priority
+		NULL, ARDUINO_RUNNING_CORE);
+
+	xTaskCreatePinnedToCore(TaskWatchdog, "TaskWatchdog", 1024, // Stack size
+		NULL, 1, // Priority
+		NULL, ARDUINO_RUNNING_CORE);
+
 }
 
+
+/*****************************************************************************
+*     Function: void loop( void )
+*  Description: This function is run during idle cycles but does no useful
+*               work since everything is done in tasks.
+*****************************************************************************/
 void loop()
 {
 	// Empty. Things are done in Tasks.
 }
 
-/*--------------------------------------------------*/
-/*---------------------- Tasks ---------------------*/
-/*--------------------------------------------------*/
-
-/* Door Operation Control Task - Dan
-    This task is responsible monitoring door position, obstacle detection, and starting or stopping movement.  In general, this task will perform the following functions:
-    • Maintain Door state
-    • Maintain direction state
-    • Start/Stop door movement
-    • Monitor obstacle detection
- */
-void TaskDoorOperation(void* pvParameters)
+/*****************************************************************************
+*     Function: void initNetwork( AsyncUDP &udp )
+*               AsyncUDP &udp - handle to the UDP connection
+*  Description: This function is run once at startup after reset.  It sets up
+*               wifi network.
+* 
+*         TODO: fix this so it will automatically reconnect
+*
+*   Referecnes: Modifed from example code provided with the WiFi Library. 
+*               See GarageRTC.h for the complete reference. 
+*****************************************************************************/
+void initNetwork(AsyncUDP &udp)
 {
-	(void)pvParameters;
+	WiFi.mode(WIFI_STA);         // Setup the wifi Mode
+	WiFi.begin(g_ssid, g_password);  // Setup the SSID and Password
+  bool connected = false;      // local for connected
 
-	while (true) // A Task shall never return or exit.
+	// Wait for aconnection
+	if (WiFi.waitForConnectResult() != WL_CONNECTED)
 	{
+		// if we do not get a connection, let the serial know
+		taskENTER_CRITICAL(&g_serialMutex);
+			Serial.println("WiFi Did not connect");
+		taskEXIT_CRITICAL(&g_serialMutex);		
+		connected = false;
 	}
+	else
+	{
+		// otherwise we connected
+		connected = true;
+		
+		// setup the port to listen to
+		if (udp.listen(1234))
+		{
+			// print out the IP we obtained. 
+			taskENTER_CRITICAL(&g_serialMutex);
+				Serial.print("UDP Listening on IP: ");
+				Serial.println(WiFi.localIP());
+			taskEXIT_CRITICAL(&g_serialMutex);	
+		}
+	}
+
+  // write the connection status to the shared variable
+  taskENTER_CRITICAL(&g_sharedMemMutex);
+    g_Connected = connected; 
+  taskEXIT_CRITICAL(&g_sharedMemMutex);  
 }
 
-/* Sensor Processing Tasks - Dan
-    This task is responsible for fetching, converting values from 
-    the sensors and making the results available other tasks.  In 
-    general, this task will perform the following functions:
-    • Fetch values from sensors
-    • Scale/Convert values
-    • Read/debounce switches
-    • Store values to memory
-    • Update shared variables
- */
-void TaskReadSensors(void* pvParameters) // This is a task.
+/*****************************************************************************
+*     Function: void  TaskReadSensors( void* pvParameters )
+*	            void* pvParameters - Paramaters passed in as part of the 
+*	                                 scheduler configuration for this task.
+*
+*  Description: Sensor Processing Tasks - This task is responsible for fetching, 
+*               converting values from the sensors and making the results 
+*               available other tasks.  In general, this task will perform the 
+*               following functions:
+*               • Fetch values from sensors
+*               • Scale/Convert values
+*               • Read/debounce switches
+*               • Store values to memory
+*               • Update shared variables
+*
+*****************************************************************************/
+void TaskReadSensors(void* pvParameters) 
 {
 	(void)pvParameters;
 	TickType_t xLastWakeTime;
 
+  bool bouncing[MAXSWS];
+  int  buttonState[MAXSWS];
+  int  stopTime[MAXSWS];
+  
+  for(int i = 0; i < MAXSWS; i++)
+      bouncing[i] = false;
+
 	while (true)
 	{
+		// Macro that expands to schedule the next wake-up time and then
+		// sleep the task until the next schedule wake-up.
 		vTaskDelayUntil(&xLastWakeTime, 10);
 
-		digitalWrite(DEBUG_T2, HIGH);
-
-		// read Analogs:
+		// read Analogs - this is the only task that reads so no need to 
+		// provide exclusive access.
 		int sensorValueT = analogRead(PIN_TEMP);
 		int sensorValueCO = analogRead(PIN_CO);
 
 		// read digitals:
 		for (int i = 0; i < MAXSWS; ++i)
 		{
-			debounce(i);
+			debounce(i, bouncing, buttonState, stopTime);
 		}
 
 		// print out the value you read:
 		float temp_buf = 0.0637 * sensorValueT - 40.116;
 		float co_buf = 0.0527 * sensorValueCO - 72.728;
-
-		// Update shared variables in critical region
-		//taskENTER_CRITICAL();
-
-		temp = temp_buf;
-		co = co_buf;
-
+		
+		// write back variables to shared globals. Protect with
+		// mutex to avoid race condition with another thread
+		taskENTER_CRITICAL(&g_sharedMemMutex);
+			g_temp = temp_buf;
+			g_co = co_buf;
+      for(int i = 0; i < MAXSWS; i++)
+        g_buttonState[i] = buttonState[i];
+		taskEXIT_CRITICAL(&g_sharedMemMutex);
+		
+		/* think this is dead code
 		if (!changeLightState && !buttonState[LIGHT])
 		{
 			changeLightState = true;
 		}
-
-		//taskEXIT_CRITICAL();
-
-		//vTaskDelay(60); // one tick delay (15ms) in between reads for stability
-
-		digitalWrite(DEBUG_T2, LOW);
-
+        */
+		
 		// set my bit in the watchdog
-		taskENTER_CRITICAL(&wdMutex);
-		WatchDogBowl = WatchDogBowl | 0x1;
-		taskEXIT_CRITICAL(&wdMutex);
+		taskENTER_CRITICAL(&g_wdMutex);
+			g_WatchDogBowl = g_WatchDogBowl | 0x1;
+		taskEXIT_CRITICAL(&g_wdMutex);
 	}
 }
 
-/* debounce(int pinIndex)
- *  Debounces the pin for DEBOUNCEMS milliseconds
- * 
- */
-void debounce(int pinIndex) // bool bouncing, int last, int pin,)
+
+/*****************************************************************************
+*     Function: void debounce( int pinIndex )
+*	            int pinIndex - The index of the pin to debounce. 
+*             bool bouncing[] - Array of bools indicating if that switch is 
+*                                currently debouncing. 
+*             int buttonState[] - Array of current button states.
+*             int stopTime[] - array of times to stop debouncing. 
+*
+*  Description: Debounces the pin for DEBOUNCEMS milliseconds
+*
+*****************************************************************************/
+void debounce(int pinIndex, bool bouncing[], int buttonState[], int stopTime[]) 
 {
 	// only read if we are in a debounce
 	if (!bouncing[pinIndex])
 	{
-		int current = digitalRead(switches[pinIndex]);
+		int current = digitalRead(g_switches[pinIndex]);
 
 		// have we have seen an edge?
 		if (buttonState[pinIndex] != current)
@@ -237,24 +251,34 @@ void debounce(int pinIndex) // bool bouncing, int last, int pin,)
 	if (bouncing && (esp_log_timestamp() > stopTime[pinIndex])) // see if we are past the bounce window
 	{
 		//save the value
-		buttonState[pinIndex] = digitalRead(switches[pinIndex]);
+		buttonState[pinIndex] = digitalRead(g_switches[pinIndex]);
 
 		//reset the bouncing
 		bouncing[pinIndex] = false;
 	}
 }
 
-/* LCD Display Task - Jackson
-    This task is responsible for updating the local display.  In 
-    general, this task will perform the following functions:
-    • Fetch values from memory
-    • Post readings or status to the display
-    • Rotate through the different displays including, but not limited to:
-        o Temperature
-        o CO Level
-        o Connection Status
-        o System state
- */
+/*****************************************************************************
+*     Function: void  TaskUpdateDisplay( void* pvParameters )
+*	            void* pvParameters - Paramaters passed in as part of the 
+*	                                 scheduler configuration for this task.
+*
+*  Description: LCD Display Task - This task is responsible for updating the 
+*               local display.  In general, this task will perform the 
+*               following functions:
+*               • Fetch values from memory
+*               • Post readings or status to the display
+*               • Update the displays including:
+*                   o Temperature
+*                   o CO Level
+*                   o Connection Status
+*                   o System state
+*
+*         Note: The LCD selected is very slow to update so we do not
+*               redraw the entire display each cycle, only updating the chars
+*               that have changed.
+*
+*****************************************************************************/
 void TaskUpdateDisplay(void* pvParameters)
 {
 	(void)pvParameters;
@@ -262,39 +286,61 @@ void TaskUpdateDisplay(void* pvParameters)
 
 	char TEMPmsg[6];
 	char DOORmsg[5];
+  int twiddle = 0;  // the running indicator on the display
 
-	xLastWakeTime = xTaskGetTickCount();
-	int var = 0;
+  // local buffers for shared memory
+  float temp;
+  float co;
+  bool doorMovingState;
+  bool lightOnState;
+  int upButtonState;
+  int downButtonState;
+  bool alarmState;
+  bool connected;
+
 
 	while (true)
 	{
-		// Wait for the next cycle.
+		// Macro that expands to schedule the next wake-up time and then
+		// sleep the task until the next schedule wake-up.
 		vTaskDelayUntil(&xLastWakeTime, 500);
-		digitalWrite(DEBUG_T3, HIGH);
+
+    // buffer in the shared memory
+    taskENTER_CRITICAL(&g_sharedMemMutex);
+      temp = g_temp;
+      doorMovingState = g_doorMovingState;
+      lightOnState = g_lightOnState;
+      upButtonState = g_buttonState[UP];
+      downButtonState = g_buttonState[DOWN];
+      alarmState = g_alarmState;
+      connected = g_Connected; 
+    taskEXIT_CRITICAL(&g_sharedMemMutex);
+
 
 		lcd.setCursor(0, 3);
-		if (var == 0)
+		switch(twiddle)
 		{
-			lcd.write('|');
+			case 0:
+				lcd.write('|');
+				break;
+			case 1:
+				lcd.write('/');
+				break;
+			case 2:
+				lcd.write('-');
+				break;
+			case 3:
+				lcd.write(byte(1));
+				break;
 		}
-		else if (var == 1)
-		{
-			lcd.write('/');
-		}
-		else if (var == 2)
-		{
-			lcd.write('-');
-		}
-		else if (var == 3)
-		{
-			lcd.write(byte(1));
-		}
-		var = (var + 1) % 4;
+		twiddle = (twiddle + 1) % 4;
 
+		// Create temprate string from float
 		dtostrf(temp, 5, 1, TEMPmsg);
 		lcd.setCursor(2, 0);
 		lcd.print(TEMPmsg);
 
+		// update the CO content 
 		if (co > HIGHCO)
 		{
 			lcd.setCursor(2, 1);
@@ -311,17 +357,18 @@ void TaskUpdateDisplay(void* pvParameters)
 			lcd.print("LOW ");
 		}
 
+		// Update the door Position
 		if (doorMovingState)
 		{
 			lcd.setCursor(15, 3);
 			lcd.print("MOVE ");
 		}
-		else if (buttonState[UP] == LOW)
+		else if (upButtonState == LOW)
 		{
 			lcd.setCursor(15, 3);
 			lcd.print("OPEN ");
 		}
-		else if (buttonState[DOWN] == LOW)
+		else if (downButtonState == LOW)
 		{
 			lcd.setCursor(15, 3);
 			lcd.print("CLOSE");
@@ -332,6 +379,7 @@ void TaskUpdateDisplay(void* pvParameters)
 			lcd.print("STOP ");
 		}
 
+		// Update the light state
 		if (lightOnState)
 		{
 			lcd.setCursor(15, 2);
@@ -343,6 +391,7 @@ void TaskUpdateDisplay(void* pvParameters)
 			lcd.print("OFF");
 		}
 
+		// update the alarm state
 		if (alarmState)
 		{
 			lcd.setCursor(15, 1);
@@ -354,7 +403,8 @@ void TaskUpdateDisplay(void* pvParameters)
 			lcd.print("OK   ");
 		}
 
-		if (Connected)
+		// update the network state
+		if (connected)
 		{
 			lcd.setCursor(15, 0);
 			lcd.print("OK  ");
@@ -365,15 +415,22 @@ void TaskUpdateDisplay(void* pvParameters)
 			lcd.print("NONE");
 		}
 
-		digitalWrite(DEBUG_T3, LOW);
-
 		// set my bit in the watchdog
-		taskENTER_CRITICAL(&wdMutex);
-		WatchDogBowl = WatchDogBowl | 0x2;
-		taskEXIT_CRITICAL(&wdMutex);
+		taskENTER_CRITICAL(&g_wdMutex);
+			g_WatchDogBowl = g_WatchDogBowl | 0x2;
+		taskEXIT_CRITICAL(&g_wdMutex);
 	}
 }
 
+/*****************************************************************************
+*     Function: void  TaskNetwork( void* pvParameters )
+*	            void* pvParameters - Paramaters passed in as part of the 
+*	                                 scheduler configuration for this task.
+*
+*  Description:  
+*
+*
+*****************************************************************************/
 void TaskNetwork(void* pvParameters)
 {
 	(void)pvParameters;
@@ -381,101 +438,161 @@ void TaskNetwork(void* pvParameters)
 	char wifiBuff[255] = "";
 	char tempBuff[6];
 	char coBuff[6];
-	int rollCounter = 0;
+  AsyncUDP udp;
 
+  // local buffers for shared memory
+  float temp;
+  float co;
+  bool lightOnState;
+  bool connected;
+  
 	while (true)
 	{
-		vTaskDelayUntil(&xLastWakeTime, DELAY_PERIOD);
+		// Macro that expands to schedule the next wake-up time and then
+		// sleep the task until the next schedule wake-up.
+		vTaskDelayUntil(&xLastWakeTime, LOW_PRI_TASK_DELAY);
 
-		if (Connected)
+
+    // buffer in the shared memory
+    taskENTER_CRITICAL(&g_sharedMemMutex);
+      temp = g_temp;
+      co = g_co;
+      lightOnState = g_lightOnState;
+      connected = g_Connected;
+    taskEXIT_CRITICAL(&g_sharedMemMutex);
+
+    if (!connected)
+      initNetwork(udp);
+      
+		if (connected)
 		{
       // have to load via dtosttrf due to sprintf bug
 			dtostrf(temp, 5, 1, tempBuff);
 			dtostrf(co, 5, 1, coBuff);
       sprintf(wifiBuff, "[{\"name\": \"doorStatus\", \"value\": \"%s\"}, {\"name\": \"lightStatus\", \"value\": \"%s\"}, {\"name\": \"tempStatus\", \"value\": \"%s\"}, {\"name\": \"coStatus\", \"value\": \"%s\"}]", "true", lightOnState ? "true" : "false", tempBuff, coBuff);
-			/*sprintf(wifiBuff,
-				"{\"status\": {\"id\": %d,\"timestamp\": \"2019-03-31 11:49:14\",\"temp\": %s,\"alarm\": \"%s\",\"light\": "
-				"\"%s\",\"door\": \"%s\",\"up_lim\": \"%s\",\"down_lim\": \"%s\",\"co\": %s}}",
-				rollCounter, tempBuff, alarmState ? "true" : "false", lightOnState ? "true" : "false", "TODO",
-				buttonState[UP] ? "true" : "false", buttonState[DOWN] ? "true" : "false", coBuff);*/
 
 			udp.broadcast(wifiBuff);
-			++rollCounter;
 		}
 
 		// set my bit in the watchdog
-		taskENTER_CRITICAL(&wdMutex);
-		WatchDogBowl = WatchDogBowl | 0x4;
-		taskEXIT_CRITICAL(&wdMutex);
+		taskENTER_CRITICAL(&g_wdMutex);
+		  g_WatchDogBowl = g_WatchDogBowl | 0x4;
+		taskEXIT_CRITICAL(&g_wdMutex);
 	}
 }
 
+
+
+/*****************************************************************************
+*     Function: void TaskPriorityMachines( void* pvParameters )
+*	            void* pvParameters - Paramaters passed in as part of the 
+*	                                 scheduler configuration for this task.
+*
+*  Description: This task is responsible monitoring door position, obstacle 
+*               detection, and starting or stopping movement.  In general, 
+*               this task will perform the following functions:
+*               • Maintain Door state
+*               • Maintain direction state
+*               • Start/Stop door movement
+*               • Monitor obstacle detection
+*
+*   Referecnes: Modifed from example code provided with the WiFi Library. 
+*               See GarageRTC.h for the complete reference. 
+*****************************************************************************/
 void TaskPriorityMachines(void* pvParameters)
 {
 	(void)pvParameters;
 	TickType_t xLastWakeTime;
-	int mode = 0;
 
-	int state = 0;
+  // state machine state vars
+  byte lightState = 0;
+	byte doorState = 0;
+  byte alarmState = 0;
+  
 	int buttonHoldTime;
+  
+  xLastWakeTime = xTaskGetTickCount();
+  
+  // local buffers for global variables
+  float temp; 
+  float co;
+  bool doorMovingState;
+  int lightButtonState;
+  int alarmButtonState;
+  int doorButtonState;
+  int upButtonState;
+  int downButtonState;
+  int stopButtonState;
+  int obsButtonState;
+  bool lightOnState;
 
-	alarmState = 0;
-
-	xLastWakeTime = xTaskGetTickCount();
 
 	while (true)
 	{
+		// Macro that expands to schedule the next wake-up time and then
+		// sleep the task until the next schedule wake-up.
 		vTaskDelayUntil(&xLastWakeTime, MED_PRI_TASK_DELAY);
 
+    // buffer in the shared memory
+    taskENTER_CRITICAL(&g_sharedMemMutex);
+      temp = g_temp;
+      co = g_co;
+      lightButtonState = g_buttonState[LIGHT];
+      alarmButtonState = g_buttonState[ALARM];
+      doorButtonState = g_buttonState[DOOR];
+      upButtonState = g_buttonState[UP];
+      downButtonState = g_buttonState[DOWN];
+      stopButtonState = g_buttonState[STOP];
+      obsButtonState = g_buttonState[OBS];
+    taskEXIT_CRITICAL(&g_sharedMemMutex);
+
+
 		// light State machine (on, off)
-		switch (mode)
+		switch (lightState)
 		{
-			case 0: //------------------------ I'm off and in restmode
-				if (buttonState[LIGHT] == LOW)
+			case 0:
+				if (lightButtonState == LOW)
 				{ // switch relay ON
 					// switch LED ON
 					digitalWrite(RELAY_LIGHT, LOW);
 					lightOnState = true;
-					mode = 1;
+					lightState = 1;
 				}
 				break;
-
-			case 1: //------------------------ I'm in ON mode, w8 4 keyrelease
-				if (buttonState[LIGHT] == HIGH)
+			case 1:
+				if (lightButtonState == HIGH)
 				{
-                    mode = 2;
-                }
+          lightState = 2;
+        }
 				break;
 
-			case 2: //------------------------ I'm ON and in restmode
-				if (buttonState[LIGHT] == LOW)
+			case 2:
+				if (lightButtonState == LOW)
 				{ // switch relay OFF
 					// switch LED OFF
 					digitalWrite(RELAY_LIGHT, HIGH);
 					lightOnState = false;
-					mode = 3;
+					lightState = 3;
 				}
 				break;
-
-			case 3: //------------------------ I'm in OFF mode, w8 4 keyrelease
-				if (buttonState[LIGHT] == HIGH)
+			case 3: 
+				if (lightButtonState == HIGH)
 				{
-                    mode = 0;
-                }
+          lightState = 0;
+        }
 				break;
-		} //switch
+		}
 
 		// Door Control State Machine
-
-		switch (state)
+		switch (doorState)
 		{
 			case 0:
-				if (buttonState[DOOR] == LOW) // someone pressed the button
+				if (doorButtonState == LOW) // someone pressed the button
 				{
 					buttonHoldTime = esp_log_timestamp() + BTNHOLDMIL;
 					digitalWrite(RELAY_DOOR, LOW);
 					doorMovingState = true;
-					state = 1;
+					doorState = 1;
 				}
 				break;
 
@@ -483,24 +600,24 @@ void TaskPriorityMachines(void* pvParameters)
 				if (esp_log_timestamp() > buttonHoldTime)
 				{
 					digitalWrite(RELAY_DOOR, HIGH);
-					state = 2;
+					doorState = 2;
 				}
 				break;
 
 			case 2: // clear the limit switch
-				if (((buttonState[UP] == HIGH) && (buttonState[DOWN] == HIGH)) || (buttonState[STOP] == LOW) || (buttonState[OBS] == LOW))
+				if (((upButtonState == HIGH) && (downButtonState == HIGH)) || (stopButtonState == LOW) || (obsButtonState == LOW))
 				{
-					state = 3;
+					doorState = 3;
 				}
 				break;
 
 			case 3: // moving
-				if ((buttonState[UP] == LOW) || (buttonState[DOWN] == LOW) || (buttonState[STOP] == LOW)
-					|| (buttonState[OBS] == LOW)) // Limit switch Hit
+				if ((upButtonState == LOW) || (downButtonState == LOW) || (stopButtonState == LOW)
+					|| (obsButtonState == LOW)) // Limit switch Hit
 				{
 					buttonHoldTime = esp_log_timestamp() + BTNHOLDMIL;
 					digitalWrite(RELAY_DOOR, LOW);
-					state = 4;
+					doorState = 4;
 				}
 				break;
 
@@ -509,12 +626,8 @@ void TaskPriorityMachines(void* pvParameters)
 				{
 					digitalWrite(RELAY_DOOR, HIGH);
 					doorMovingState = false;
-					state = 0;
+					doorState = 0;
 				}
-				break;
-
-			default:
-				// TODO: some error checking
 				break;
 		}
 
@@ -535,27 +648,61 @@ void TaskPriorityMachines(void* pvParameters)
 					digitalWrite(RELAY_ALARM, HIGH);
 					alarmState = 0;
 				}
-				else if (buttonState[ALARM] == LOW)
+				else if (alarmButtonState == LOW)
 				{ // Someone manually cleared the alarm
 					digitalWrite(RELAY_ALARM, HIGH);
 				}
 				break;
 		}
 
+    // write back global variables
+    taskENTER_CRITICAL(&g_sharedMemMutex);
+      g_doorMovingState = doorMovingState;
+      g_lightOnState = lightOnState;
+      g_alarmState = alarmState;
+    taskEXIT_CRITICAL(&g_sharedMemMutex);
+    
 		// set my bit in the watchdog
-		taskENTER_CRITICAL(&wdMutex);
-		WatchDogBowl = WatchDogBowl | 0x8;
-		taskEXIT_CRITICAL(&wdMutex);
+		taskENTER_CRITICAL(&g_wdMutex);
+			g_WatchDogBowl = g_WatchDogBowl | 0x8;
+		taskEXIT_CRITICAL(&g_wdMutex);
 	}
 }
 
-void IdleTask(void* pvParameters)
+/*****************************************************************************
+*     Function: void IRAM_ATTR resetModule( void ) 
+*
+*  Description: Interrupt service routine for watchdog timer
+*
+*   Referecnes: Modifed from example code provided with the ESP32 library. 
+*               See GarageRTC.h for the complete reference. 
+*****************************************************************************/
+void IRAM_ATTR resetModule()
+{
+	esp_restart();  // if called, trigger a systems reset
+}
+
+/*****************************************************************************
+*     Function: void TaskWatchdog( void* pvParameters )
+*	            void* pvParameters - Paramaters passed in as part of the 
+*	                                 scheduler configuration for this task.
+*
+*  Description: This task is responsible monitoring  the watchdog bowl and 
+*               ensuring all tasks are running.  If a task fails to update
+*               its bit in the bowl, the timer will eventually elapse and
+*               reset the device. 
+*
+*   Referecnes: Modifed from example code provided with the ESP32 library. 
+*               See GarageRTC.h for the complete reference.
+*****************************************************************************/
+void TaskWatchdog(void* pvParameters)
 {
 	(void)pvParameters;
 	TickType_t xLastWakeTime;
-	byte watchDogBowl_buff = 0;
+	byte g_WatchDogBowl_buff = 0;
 
-	const int wdtTimeout = 3000; //time in ms to trigger the watchdog
+	// configure the watchdog timer
+	const int wdtTimeout = WDTIMEOUT;   //time in ms to trigger the watchdog
 	hw_timer_t* timer = NULL;
 	timer = timerBegin(0, 80, true);                  //timer 0, div 80
 	timerAttachInterrupt(timer, &resetModule, true);  //attach callback
@@ -568,17 +715,16 @@ void IdleTask(void* pvParameters)
 	// no task is slower than the idle task
 	while (true)
 	{
+		// Macro that expands to schedule the next wake-up time and then
+		// sleep the task until the next schedule wake-up.
 		vTaskDelayUntil(&xLastWakeTime, 1500);
 
-		taskENTER_CRITICAL(&wdMutex);
-		Serial.println(WatchDogBowl, HEX);
-
-		if (WatchDogBowl == 0xF)
-		{
-			timerWrite(timer, 0); //reset timer (feed watchdog)
-		}
-
-		WatchDogBowl = 0;
-		taskEXIT_CRITICAL(&wdMutex);
+		taskENTER_CRITICAL(&g_wdMutex);
+			if (g_WatchDogBowl == 0xF)
+			{
+				timerWrite(timer, 0); //reset timer (feed watchdog)
+			}
+			g_WatchDogBowl = 0;  // clear the bowl 
+		taskEXIT_CRITICAL(&g_wdMutex);
 	}
 }
