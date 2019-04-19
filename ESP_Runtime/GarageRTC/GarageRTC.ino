@@ -39,10 +39,7 @@ void setup()
 		pinMode(g_switches[i], INPUT_PULLUP);  // Setup as input with pull up
 	}
 
-    // setup the display
-	//TODO: DEADCODE Wire.begin();
-	//TODO: DEADCODE Wire.beginTransmission(0x27); // configure the SPI
-
+  // setup the display
 	lcd.begin(20, 4);       // setup the LCD dims
 	lcd.setBacklight(128);  // set the backlighting
 	lcd.home();             // send the cursor home
@@ -107,8 +104,6 @@ void loop()
 *  Description: This function is run once at startup after reset.  It sets up
 *               wifi network.
 * 
-*         TODO: fix this so it will automatically reconnect
-*
 *   Referecnes: Modifed from example code provided with the WiFi Library. 
 *               See GarageRTC.h for the complete reference. 
 *****************************************************************************/
@@ -171,8 +166,8 @@ void TaskReadSensors(void* pvParameters)
 	TickType_t xLastWakeTime;
 
   bool bouncing[MAXSWS];
-  int  buttonState[MAXSWS];
-  int  stopTime[MAXSWS];
+  byte  buttonState[MAXSWS];
+  byte  stopTime[MAXSWS];
   
   for(int i = 0; i < MAXSWS; i++)
       bouncing[i] = false;
@@ -206,14 +201,7 @@ void TaskReadSensors(void* pvParameters)
       for(int i = 0; i < MAXSWS; i++)
         g_buttonState[i] = buttonState[i];
 		taskEXIT_CRITICAL(&g_sharedMemMutex);
-		
-		/* think this is dead code
-		if (!changeLightState && !buttonState[LIGHT])
-		{
-			changeLightState = true;
-		}
-        */
-		
+			
 		// set my bit in the watchdog
 		taskENTER_CRITICAL(&g_wdMutex);
 			g_WatchDogBowl = g_WatchDogBowl | 0x1;
@@ -233,7 +221,7 @@ void TaskReadSensors(void* pvParameters)
 *  Description: Debounces the pin for DEBOUNCEMS milliseconds
 *
 *****************************************************************************/
-void debounce(int pinIndex, bool bouncing[], int buttonState[], int stopTime[]) 
+void debounce(int pinIndex, bool bouncing[], byte buttonState[], byte stopTime[]) 
 {
 	// only read if we are in a debounce
 	if (!bouncing[pinIndex])
@@ -293,11 +281,10 @@ void TaskUpdateDisplay(void* pvParameters)
   float co;
   bool doorMovingState;
   bool lightOnState;
-  int upButtonState;
-  int downButtonState;
+  byte upButtonState;
+  byte downButtonState;
   bool alarmState;
   bool connected;
-
 
 	while (true)
 	{
@@ -517,13 +504,13 @@ void TaskPriorityMachines(void* pvParameters)
   float temp; 
   float co;
   bool doorMovingState;
-  int lightButtonState;
-  int alarmButtonState;
-  int doorButtonState;
-  int upButtonState;
-  int downButtonState;
-  int stopButtonState;
-  int obsButtonState;
+  byte lightButtonState;
+  byte alarmButtonState;
+  byte doorButtonState;
+  byte upButtonState;
+  byte downButtonState;
+  byte stopButtonState;
+  byte obsButtonState;
   bool lightOnState;
 
 
