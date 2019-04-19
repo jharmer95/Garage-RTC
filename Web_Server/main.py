@@ -13,7 +13,6 @@ socketio = SocketIO(app)
 STATUS_VALS = []
 SETTING_VALS = []
 BUF_STATUS_VALS = []
-BUF_SETTING_VALS = []
 UDP_IP = ''
 UDP_PORT = 0
 UDP_TIMEOUT = 0.0
@@ -58,8 +57,6 @@ def handle_refreshStatus_event():
 
 @socketio.on('setStatus')
 def handle_setStatus_event(jStr):
-    global STATUS_VALS
-
     print(jStr)
 
     for setting in jStr:
@@ -96,9 +93,8 @@ def handle_setSettings_event(jStr):
 
     conn.commit()
     c.execute('SELECT * FROM settings')
-    BUF_SETTING_VALS = sqlToDictList(c.fetchall())
+    SETTING_VALS = sqlToDictList(c.fetchall())
     conn.close()
-    sendSettings()
 
 
 def sqlToDictList(results):
@@ -114,15 +110,14 @@ def sqlToDictList(results):
 
 
 def loadLocalSettings():
-    global BUF_SETTING_VALS
+    global SETTING_VALS
 
     conn = sqlite3.connect('data/settings.db')
     c = conn.cursor()
     c.execute('SELECT * FROM settings')
     valStr = c.fetchall()
-    BUF_SETTING_VALS = sqlToDictList(valStr)
+    SETTING_VALS = sqlToDictList(valStr)
     conn.close()
-    updateLocalSettings()
 
 
 def updateLocalSettings():
@@ -151,40 +146,6 @@ def setStatus(name, value):
     for val in BUF_STATUS_VALS:
         if val['name'] == name:
             val['value'] = value
-
-
-def sendSettings():
-    global BUF_SETTING_VALS
-    global UDP_IP
-    global UDP_PORT
-
-    jStr = json.dumps(BUF_SETTING_VALS)
-    print('Sending message: "' + jStr + '" to IP: ' +
-        str(UDP_IP) + ':' + str(UDP_PORT))
-
-    cmdStr = '{"cmd": "setStatus", "arg": "' + jStr + '"}'
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(cmdStr.encode('utf-8'), (UDP_IP, UDP_PORT))
-
-
-def receiveSettings():
-    global SETTING_VALS
-    global UDP_IP
-    global UDP_PORT
-    global UDP_TIMEOUT
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(UDP_TIMEOUT)
-
-    sock.sendto('{"cmd": "getSettings", "arg": ""}'.encode('utf-8'), (UDP_IP, UDP_PORT))
-
-    try:
-        data, server = sock.recvfrom(1024)
-        print("data: " + str(data) + "\nserver: " + str(server))
-        SETTING_VALS = data
-        updateLocalSettings()
-    except socket.timeout:
-        print('REQUEST TIMED OUT!')
 
 
 def receiveStatus():

@@ -1,6 +1,6 @@
 import sqlite3
 
-conn = sqlite3.connect('data/settings.db')
+conn = sqlite3.connect('data/settings2.db')
 
 def main():
     c = conn.cursor()
