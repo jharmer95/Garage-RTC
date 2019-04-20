@@ -1,3 +1,12 @@
+/*****************************************************************************
+          File: main.js
+   Description: Implements the main page functions for GarageRTC.  See
+                https://github.com/jharmer95/Garage-RTC/ for details on the
+                Open GarageRTC project.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, harmer@umich.edu
+
+*****************************************************************************/
 // Create socket
 var socket = io.connect("http://" + document.domain + ":" + location.port);
 

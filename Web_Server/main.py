@@ -1,10 +1,68 @@
+'''***************************************************************************
+          File: main.py
+   Description: Implements a web page for the IoT Garage Door controller.  See
+                https://github.com/jharmer95/Garage-RTC/ for details on the
+                Open GarageRTC project.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, harmer@umich.edu
+
+***************************************************************************'''
+
+'''***************************************************************************
+*     Include libraries and references
+*
+***************************************************************************'''
+
+'''***************************************************************************
+*     Library: flask
+*      Author: Armin Ronacher
+*      Source: http://flask.pocoo.org/
+*     Version: 1.0.2
+* Description: Flask is a microframework for Python based on Werkzeug, Jinja 2
+*              and good intentions. And before you ask: It's BSD licensed!
+***************************************************************************'''
 from flask import Flask, render_template
+
+'''***************************************************************************
+*     Library: Flask Socket IO extentions
+*      Author: Miguel Grinberg
+*      Source: https://flask-socketio.readthedocs.io/en/latest/
+*     Version: n/a
+* Description: Flask-SocketIO gives Flask applications access to low latency
+*              bi-directional communications between the clients and the
+*              server. The client-side application can use any of the
+*              SocketIO official clients libraries in Javascript, C++, Java
+*              and Swift, or any compatible client to establish a permanent
+*              connection to the server.
+***************************************************************************'''
 from flask_socketio import SocketIO
-from datetime import datetime
+
+'''***************************************************************************
+*     Library: Python JSON library
+*      Author: Python Software Foundation
+*      Source: https://docs.python.org/2/library/json.html
+*     Version: 2.7
+* Description: Provides JSON encoding/decoding capabilities in Python
+***************************************************************************'''
 import json
+
+'''***************************************************************************
+*     Library: Python Socket Library
+*      Author: Python Software Foundation
+*      Source: https://docs.python.org/2/library/socket.html
+*     Version: 2.7
+* Description: Provides networking sockets in Python.
+***************************************************************************'''
 import socket
+
+'''***************************************************************************
+*     Library: sqlite3 Database Library
+*      Author: Python Software Foundation
+*      Source: https://docs.python.org/2/library/sqlite3.html
+*     Version: 2.7
+* Description: Provides SQL Lite database connectivity in python.
+***************************************************************************'''
 import sqlite3
-import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'vnkdjnfjknfl1232#'
@@ -12,10 +70,12 @@ socketio = SocketIO(app)
 
 STATUS_VALS = []
 SETTING_VALS = []
-BUF_STATUS_VALS = []
-UDP_IP = ''
-UDP_PORT = 0
-UDP_TIMEOUT = 0.0
+BUF_STATUS_VALS = [{'name': 'lightStatus', 'value': False},
+                   {'name': 'doorStatus', 'value': False},
+                   {'name': 'alarmStatus', 'value': False}]
+UDP_IP = '192.168.1.155'
+UDP_PORT = 1234
+UDP_TIMEOUT = 1
 
 
 @app.before_first_request
@@ -45,21 +105,28 @@ def settings():
 @socketio.on('getStatus')
 def handle_getStatus_event():
     global STATUS_VALS
-
-    jStr = json.dumps(STATUS_VALS)
-    socketio.emit('updateStatus', jStr, callback=messageReceived)
-
+    socketio.emit('updateStatus', str(STATUS_VALS), callback=messageReceived)
 
 @socketio.on('refreshStatus')
 def handle_refreshStatus_event():
     receiveStatus()
 
+# from https://stackoverflow.com/questions/13101653/python-convert-complex-dictionary-of-strings-from-unicode-to-ascii
+def convert(input):
+    if isinstance(input, dict):
+        return dict((convert(key), convert(value)) for key, value in input.iteritems())
+    elif isinstance(input, list):
+        return [convert(element) for element in input]
+    elif isinstance(input, unicode):
+        return input.encode('utf-8')
+    else:
+        return input
 
 @socketio.on('setStatus')
 def handle_setStatus_event(jStr):
-    print(jStr)
+    out = convert(jStr)
 
-    for setting in jStr:
+    for setting in out:
         name = setting['name']
         val = setting['value']
         setStatus(name, val)
@@ -146,6 +213,8 @@ def setStatus(name, value):
     for val in BUF_STATUS_VALS:
         if val['name'] == name:
             val['value'] = value
+        else:
+            val['value'] = False
 
 
 def receiveStatus():
@@ -178,10 +247,21 @@ def sendStatus():
     global UDP_PORT
 
     jStr = json.dumps(BUF_STATUS_VALS)
+    print("sendStatus: " + str(BUF_STATUS_VALS));
     print('Sending message: "' + jStr + '" to IP: ' +
         str(UDP_IP) + ':' + str(UDP_PORT))
 
-    cmdStr = '{"cmd": "setStatus", "arg": "' + jStr + '"}'
+    bitWiseValue = 0;
+    #convert to a bitwise operator:
+    for var in BUF_STATUS_VALS:
+        if var['name'] == "alarmStatus":
+            bitWiseValue = bitWiseValue | ( 0x1 & var['value'] )
+        if var['name'] == "doorStatus":
+            bitWiseValue = bitWiseValue | ( var['value'] << 1 )
+        if var['name'] == "lightStatus":
+            bitWiseValue = bitWiseValue | ( var['value'] << 2 )
+
+    cmdStr = '{CMD:' + chr(bitWiseValue) + '}'
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.sendto(cmdStr.encode('utf-8'), (UDP_IP, UDP_PORT))
 

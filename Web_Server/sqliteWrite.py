@@ -1,3 +1,10 @@
+'''***************************************************************************
+          File: sqliteWrite.py
+   Description: Writes data back to the database.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, harmer@umich.edu
+
+***************************************************************************'''
 import sqlite3
 
 conn = sqlite3.connect('data/settings.db')

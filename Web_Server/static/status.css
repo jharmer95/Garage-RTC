@@ -1,3 +1,13 @@
+/*****************************************************************************
+          File: status.css
+   Description: Style Sheets for the status page functions for GarageRTC.  See
+                https://github.com/jharmer95/Garage-RTC/ for details on the
+                Open GarageRTC project.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, harmer@umich.edu
+
+*****************************************************************************/
+
 .toggleBtn {
     width: 80px;
 }

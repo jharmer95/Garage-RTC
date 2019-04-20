@@ -1,3 +1,12 @@
+/*****************************************************************************
+          File: status.js
+   Description: Implements the status page functions for GarageRTC.  See
+                https://github.com/jharmer95/Garage-RTC/ for details on the
+                Open GarageRTC project.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, harmer@umich.edu
+
+*****************************************************************************/
 // Create socket
 var socket = io.connect("http://" + document.domain + ":" + location.port);
 var time = 0;
@@ -16,19 +25,7 @@ window.setInterval(function () {
 $(document).ready(function () {
     $(".toggleBtn").click(function () {
         var tID = this.id;
-
-        if ($(this).val() === "OFF") {
-            socket.emit("setStatus", [{ name: tID, value: true }]);
-        }
-        else if ($(this).val() === "ON") {
-            socket.emit("setStatus", [{ name: tID, value: false }]);
-        }
-        else if ($(this).val() === "CLOSED") {
-            socket.emit("setStatus", [{ name: tID, value: true }]);
-        }
-        else if ($(this).val() === "OPEN") {
-            socket.emit("setStatus", [{ name: tID, value: false }]);
-        }
+        socket.emit("setStatus", [{ name: tID, value: true }]);
     });
 });
 
@@ -41,6 +38,7 @@ socket.on("updateStatus", function (msg) {
         objs = JSON.parse(msg);
     }
     console.log(objs);
+
     for (var i = 0; i < objs.length; ++i) {
         var itm = document.getElementById(objs[i].name);
         console.log("tag: " + itm.tagName);
@@ -52,8 +50,18 @@ socket.on("updateStatus", function (msg) {
             case "INPUT":
                 console.log("type: " + itm.type);
                 if (itm.type === "button") {
-                    if ($(itm).hasClass("t_on_off")) {
-                        if (objs[i].value == true) {
+                    if ($(itm).hasClass("t_alarm")) {
+                        if (objs[i].value == "True") {
+                            $(itm).val("ALARM");
+                            $(itm).addClass("toggleBtn_OFF").removeClass("toggleBtn_ON");
+                        }
+                        else {
+                            $(itm).val("OK");
+                            $(itm).addClass("toggleBtn_ON").removeClass("toggleBtn_OFF");
+                        }
+                    }
+                    else if ($(itm).hasClass("t_on_off")) {
+                        if (objs[i].value == "ON") {
                             $(itm).val("ON");
                             $(itm).addClass("toggleBtn_ON").removeClass("toggleBtn_OFF");
                         }
@@ -63,13 +71,21 @@ socket.on("updateStatus", function (msg) {
                         }
                     }
                     else if ($(itm).hasClass("t_open_closed")) {
-                        if (objs[i].value == true) {
+                        if (objs[i].value == 0) {
                             $(itm).val("OPEN");
-                            $(itm).addClass("toggleBtn_ON").removeClass("toggleBtn_OFF");
+                            $(itm).addClass("toggleBtn_OFF").removeClass("toggleBtn_ON");
+                        }
+                        else if (objs[i].value == 2) {
+                            $(itm).val("STOP");
+                            $(itm).addClass("toggleBtn_OFF").removeClass("toggleBtn_ON");
+                        }
+                        else if (objs[i].value == 3) {
+                            $(itm).val("MOVE");
+                            $(itm).addClass("toggleBtn_OFF").removeClass("toggleBtn_ON");
                         }
                         else {
                             $(itm).val("CLOSED");
-                            $(itm).addClass("toggleBtn_OFF").removeClass("toggleBtn_ON");
+                            $(itm).addClass("toggleBtn_ON").removeClass("toggleBtn_OFF");
                         }
                     }
                 }

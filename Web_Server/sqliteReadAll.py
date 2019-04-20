@@ -1,3 +1,10 @@
+'''***************************************************************************
+          File: sqliteReadAll.py
+   Description: Fetches all data from the database.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, harmer@umich.edu
+
+***************************************************************************'''
 import sqlite3
 
 conn = sqlite3.connect('data/settings2.db')
