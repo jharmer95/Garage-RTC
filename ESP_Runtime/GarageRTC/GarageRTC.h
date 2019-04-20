@@ -91,8 +91,8 @@
 #define BUTTON_LIGHT 15
 
 #define LIMSW_UP 27
-#define LIMSW_DOWN 14
-#define LIMSW_OBS 12
+#define LIMSW_DOWN 12
+#define LIMSW_OBS 14
 
 #define RELAY_DOOR 32
 #define RELAY_ALARM 33
@@ -105,9 +105,10 @@
 #define DEBUG_T3 18
 #define DEBUG_T4 2
 
-#define TOP 0
-#define BOTTOM 1
-#define MIDDLE 2
+#define DP_OPEN 0
+#define DP_CLOSE 1
+#define DP_STOP 2
+#define DP_MOVE 3
 
 int outputPins[] = { RELAY_DOOR, RELAY_ALARM, RELAY_LIGHT, 
                     RELAY_AUX, DEBUG_T1, DEBUG_T2, DEBUG_T3, DEBUG_T4 };
@@ -131,7 +132,7 @@ int outputPins[] = { RELAY_DOOR, RELAY_ALARM, RELAY_LIGHT,
 #define MEDCO 10                // High CO Limit
 #define COHYST 5                // CO Hysteresis
 #define SERIALSPEED 115200      // Serial Baud Rate
-#define WDTIMEOUT 3000		    	// Watch Dog Timeout 
+#define WDTIMEOUT 5000		    	// Watch Dog Timeout 
 
 /*****************************************************************************
 *     Function prototypes 
@@ -181,19 +182,21 @@ portMUX_TYPE g_wdMutex;         // Mux to protect the watchdog bowl
 portMUX_TYPE g_sharedMemMutex;  // mutex to protect the shared globals
 portMUX_TYPE g_serialMutex;     // Mux to protect the serial device
 
-// todo: convert buttons to byte
-byte  g_buttonState[MAXSWS] = { 1, 1, 1, 1, 1, 1, 1 };
+byte g_buttonState[MAXSWS] = { 1, 1, 1, 1, 1, 1, 1 };
 bool g_alarmState = false;
 bool g_doorMovingState = false;
 bool g_lightOnState = false;
 bool g_Connected = false;
+byte g_doorPosition = 0;
 
 // Shared Variables
 float g_temp = 23.4;
 float g_co = 0.0;
-bool  g_lim_up = false;
-bool  g_lim_dn = false;
-bool  g_lim_ob = false;
+byte g_webCmd = 0;
+byte g_coState = 0;
+
+// converting the g_coState to a string
+const char *g_coStateStr[3] = {"LOW", "WARN", "HIGH"};
 
 bool g_firstRun = true;  // Indicating the system is just starting up
 bool g_heating = true;   // Indicates the CO sensor is still heating
