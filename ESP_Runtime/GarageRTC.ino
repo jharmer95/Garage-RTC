@@ -439,7 +439,7 @@ void TaskUpdateDisplay(void* pvParameters)
 *****************************************************************************/
 void TaskNetwork(void* pvParameters)
 {
-  (void)pvParameters;
+  (void)pvParameters;t
   TickType_t xLastWakeTime;
   char wifiBuff[255] = "";
   char tempBuff[6];
@@ -492,15 +492,18 @@ void TaskNetwork(void* pvParameters)
       if (packet.length() == 7)
       {
         byte value = (packet.data()[5]);
+        #ifdef DEBBUG
         Serial.print("value = ");
         Serial.print(value, HEX);
         Serial.print("\n");
+        #endif 
         taskENTER_CRITICAL(&g_sharedMemMutex);
         g_webCmd = value;
         taskEXIT_CRITICAL(&g_sharedMemMutex);
 
       }
 
+      #ifdef DEBBUG
       Serial.print("UDP Packet Type: ");
       Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast" : "Unicast");
       Serial.print(", From: ");
@@ -518,7 +521,7 @@ void TaskNetwork(void* pvParameters)
       Serial.println();
       //reply to the client
       packet.printf("Got %u bytes of data", packet.length());
-
+      #endif
     });
 
 

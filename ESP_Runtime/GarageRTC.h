@@ -182,8 +182,7 @@ portMUX_TYPE g_wdMutex;         // Mux to protect the watchdog bowl
 portMUX_TYPE g_sharedMemMutex;  // mutex to protect the shared globals
 portMUX_TYPE g_serialMutex;     // Mux to protect the serial device
 
-// todo: convert buttons to byte
-byte  g_buttonState[MAXSWS] = { 1, 1, 1, 1, 1, 1, 1 };
+byte g_buttonState[MAXSWS] = { 1, 1, 1, 1, 1, 1, 1 };
 bool g_alarmState = false;
 bool g_doorMovingState = false;
 bool g_lightOnState = false;
@@ -199,10 +198,5 @@ byte g_coState = 0;
 // converting the g_coState to a string
 const char *g_coStateStr[3] = {"LOW", "WARN", "HIGH"};
 
-/* TODO: DEADCODE
-bool  g_lim_up = false;
-bool  g_lim_dn = false;
-bool  g_lim_ob = false;
-*/
 bool g_firstRun = true;  // Indicating the system is just starting up
 bool g_heating = true;   // Indicates the CO sensor is still heating
