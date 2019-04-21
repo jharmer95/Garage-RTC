@@ -31,10 +31,14 @@
 #include <LiquidCrystal_PCF8574.h>
 /*****************************************************************************
 *     Library: WiFi.h
-*      Author:
-*      Source:
-*     Version:
-* Description: 
+*      Author: Hristo Gochkov <hristo@espressif.com>
+*      Source: https://github.com/espressif/arduino-esp32/tree/master/libraries/WiFi/src
+*     Version: 1.0
+* Description: With this library you can instantiate Servers, Clients and 
+*              send/receive UDP packets through WiFi. The shield can connect
+*              either to open or encrypted networks (WEP, WPA). The IP 
+*              address can be assigned statically or through a DHCP. The 
+*              library can also manage DNS.
 *****************************************************************************/
 #include "WiFi.h"
 
@@ -139,11 +143,11 @@ int outputPins[] = { RELAY_DOOR, RELAY_ALARM, RELAY_LIGHT,
 *
 *****************************************************************************/
 // Tasks
-void TaskDoorOperation(void* pvParameters);
 void TaskReadSensors(void* pvParameters);
 void TaskUpdateDisplay(void* pvParameters);
 void TaskPriorityMachines(void* pvParameters);
 void TaskNetwork(void* pvParameters);
+void TaskWatchdog(void* pvParameters);
 
 // general
 void initWatchdog();
