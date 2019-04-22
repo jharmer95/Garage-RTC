@@ -1,12 +1,15 @@
 /*****************************************************************************
 *         File: GarageRTC.h
-*  Description: Implements a real time IoT Garage Door controller.  See 
-*               https://github.com/jharmer95/Garage-RTC/ for details on the 
+*  Description: Implements a real time IoT Garage Door controller.  See
+*               https://github.com/jharmer95/Garage-RTC/ for details on the
 *               Open GarageRTC project.
 *      Authors: Daniel Zajac,  danzajac@umich.edu
-*               Jackson Harmer, harmer@umich.edu
+*               Jackson Harmer, jharmer@umich.edu
 *
 *****************************************************************************/
+#ifndef GARAGERTC_H_INCLUDE
+#define GARAGERTC_H_INCLUDE
+
 #if CONFIG_FREERTOS_UNICORE
 #	define ARDUINO_RUNNING_CORE 0
 #else
@@ -23,9 +26,9 @@
 *      Author: Matthias Hertel  www.mathertel.de
 *      Source: http://www.mathertel.de/Arduino/LiquidCrystal_PCF8574.aspx
 *     Version: 1.1.0
-* Description: A library for driving LiquidCrystal displays (LCD) by using the 
-*              I2C bus and an PCF8574 I2C adapter. This library is derived 
-*              from the original Arduino LiquidCrystal library and uses the 
+* Description: A library for driving LiquidCrystal displays (LCD) by using the
+*              I2C bus and an PCF8574 I2C adapter. This library is derived
+*              from the original Arduino LiquidCrystal library and uses the
 *              original Wire library for communication.
 *****************************************************************************/
 #include <LiquidCrystal_PCF8574.h>
@@ -34,10 +37,10 @@
 *      Author: Hristo Gochkov <hristo@espressif.com>
 *      Source: https://github.com/espressif/arduino-esp32/tree/master/libraries/WiFi/src
 *     Version: 1.0
-* Description: With this library you can instantiate Servers, Clients and 
+* Description: With this library you can instantiate Servers, Clients and
 *              send/receive UDP packets through WiFi. The shield can connect
-*              either to open or encrypted networks (WEP, WPA). The IP 
-*              address can be assigned statically or through a DHCP. The 
+*              either to open or encrypted networks (WEP, WPA). The IP
+*              address can be assigned statically or through a DHCP. The
 *              library can also manage DNS.
 *****************************************************************************/
 #include "WiFi.h"
@@ -64,10 +67,10 @@
 /*****************************************************************************
 *     Library: FreeRTOS Copyright (C) 2015
 *      Author: Real Time Engineers Ltd.
-*      Source: http://www.FreeRTOS.org 
-*     Version: FreeRTOS V8.2.0 
+*      Source: http://www.FreeRTOS.org
+*     Version: FreeRTOS V8.2.0
 * Description: FreeRTOS provides completely free yet professionally developed,
-*              robust, strictly quality controlled, supported, and cross 
+*              robust, strictly quality controlled, supported, and cross
 *              platform software that is more than just the market leader, it
 *              s the industry's de facto standard.
 *****************************************************************************/
@@ -77,7 +80,7 @@
 *      Author: Daniel Zajac, Jackson Harmer
 *      Source: https://github.com/jharmer95/Garage-RTC/
 *     Version: 1.0.0
-* Description: Contains WIFI credentials 
+* Description: Contains WIFI credentials
 *****************************************************************************/
 #include "WIFI_AP.h"
 
@@ -114,8 +117,7 @@
 #define DP_STOP 2
 #define DP_MOVE 3
 
-int outputPins[] = { RELAY_DOOR, RELAY_ALARM, RELAY_LIGHT, 
-                    RELAY_AUX, DEBUG_T1, DEBUG_T2, DEBUG_T3, DEBUG_T4 };
+int outputPins[] = { RELAY_DOOR, RELAY_ALARM, RELAY_LIGHT, RELAY_AUX, DEBUG_T1, DEBUG_T2, DEBUG_T3, DEBUG_T4 };
 
 /*****************************************************************************
 *     Static system parameters
@@ -136,10 +138,10 @@ int outputPins[] = { RELAY_DOOR, RELAY_ALARM, RELAY_LIGHT,
 #define MEDCO 10                // High CO Limit
 #define COHYST 5                // CO Hysteresis
 #define SERIALSPEED 115200      // Serial Baud Rate
-#define WDTIMEOUT 5000		    	// Watch Dog Timeout 
+#define WDTIMEOUT 5000          // Watch Dog Timeout
 
 /*****************************************************************************
-*     Function prototypes 
+*     Function prototypes
 *
 *****************************************************************************/
 // Tasks
@@ -152,7 +154,7 @@ void TaskWatchdog(void* pvParameters);
 // general
 void initWatchdog();
 void debounce(int pinIndex, bool bouncing[], int buttonState[], int stopTime[]);
-void initNetwork(AsyncUDP &udp);
+void initNetwork(AsyncUDP& udp);
 
 /*****************************************************************************
 *     Global Variables
@@ -160,14 +162,8 @@ void initNetwork(AsyncUDP &udp);
 *****************************************************************************/
 // custom char since '\' does not exist on the display
 static byte customBackslash[8] = { 0b00000, 0b10000, 0b01000, 0b00100, 0b00010, 0b00001, 0b00000, 0b00000 };
- 
-static int g_switches[MAXSWS] = { BUTTON_ALARM, 
-							BUTTON_DOOR, 
-							BUTTON_STOP, 
-							BUTTON_LIGHT, 
-							LIMSW_UP, 
-							LIMSW_DOWN, 
-							LIMSW_OBS };
+
+static int g_switches[MAXSWS] = { BUTTON_ALARM, BUTTON_DOOR, BUTTON_STOP, BUTTON_LIGHT, LIMSW_UP, LIMSW_DOWN, LIMSW_OBS };
 
 // Needs to match order above.
 enum SWITCH_INDEX
@@ -181,10 +177,10 @@ enum SWITCH_INDEX
 	OBS
 };
 
-byte g_WatchDogBowl = 0;        // Watchdog Feed bowl
-portMUX_TYPE g_wdMutex;         // Mux to protect the watchdog bowl
-portMUX_TYPE g_sharedMemMutex;  // mutex to protect the shared globals
-portMUX_TYPE g_serialMutex;     // Mux to protect the serial device
+byte g_WatchDogBowl = 0;       // Watchdog Feed bowl
+portMUX_TYPE g_wdMutex;        // Mux to protect the watchdog bowl
+portMUX_TYPE g_sharedMemMutex; // mutex to protect the shared globals
+portMUX_TYPE g_serialMutex;    // Mux to protect the serial device
 
 byte g_buttonState[MAXSWS] = { 1, 1, 1, 1, 1, 1, 1 };
 bool g_alarmState = false;
@@ -200,7 +196,9 @@ byte g_webCmd = 0;
 byte g_coState = 0;
 
 // converting the g_coState to a string
-const char *g_coStateStr[3] = {"LOW", "WARN", "HIGH"};
+const char* g_coStateStr[3] = { "LOW", "WARN", "HIGH" };
 
-bool g_firstRun = true;  // Indicating the system is just starting up
-bool g_heating = true;   // Indicates the CO sensor is still heating
+bool g_firstRun = true; // Indicating the system is just starting up
+bool g_heating = true;  // Indicates the CO sensor is still heating
+
+#endif
