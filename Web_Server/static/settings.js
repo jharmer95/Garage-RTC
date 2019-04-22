@@ -4,7 +4,7 @@
                 https://github.com/jharmer95/Garage-RTC/ for details on the
                 Open GarageRTC project.
        Authors: Daniel Zajac,  danzajac@umich.edu
-                Jackson Harmer, harmer@umich.edu
+                Jackson Harmer, jharmer@umich.edu
 
 *****************************************************************************/
 // Create socket
@@ -12,12 +12,10 @@ var socket = io.connect("http://" + document.domain + ":" + location.port);
 var time = 0;
 
 $(document).ready(function () {
-    // $("#scanBtn").click(function () {
-    //     alert("SCANNING!");
-    // });
     socket.emit("getSettings");
 });
 
+// function to submit the settings form and send the data back to the server
 function submitForm() {
     var ipForm = document.getElementById("udpIP");
     var ip = ipForm.value;
@@ -73,6 +71,7 @@ function submitForm() {
     }
 }
 
+// Handles the updateSettings event to change the values shown on screen to reflect the new settings
 socket.on("updateSettings", function (msg) {
     objs = JSON.parse(msg);
     for (var i = 0; i < objs.length; ++i) {

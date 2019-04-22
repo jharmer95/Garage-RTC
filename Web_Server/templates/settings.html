@@ -1,16 +1,29 @@
+<!--*****************************************************************************
+          File: settings.html
+   Description: Settings Page, used to allow users to tweak certain settings. See
+                https://github.com/jharmer95/Garage-RTC/ for details on the
+                Open GarageRTC project.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, jharmer@umich.edu
+
+*****************************************************************************-->
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <title>TestPage</title>
+    <title>GarageRTC Settings</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <!-- SocketIO (used for asynchronous callbacks) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
-
+    <!-- jQuery (used to easily access elements and perform operations on them) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <!-- Bootstrap (used for making the UI look nice) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+    <!-- Custom stylesheet for settings page -->
     <link rel="stylesheet" href="../static/settings.css">
 </head>
 
@@ -40,11 +53,10 @@
 
     <div id="settingsContainer" class="container-fluid">
         <p id="errorMsg"></p>
-        <form id = "settingsForm" action="javascript: submitForm()">
+        <form id="settingsForm" action="javascript: submitForm()">
             Controller IP Address:<br>
             <input type="text" name="udpIP" id="udpIP" class="validText" placeholder="IP Address (e.g. 192.168.0.2)">
             <input type="text" name="udpPort" id="udpPort" class="validText" style="width:80px;" placeholder="Port"><br>
-            <!-- <input type="button" name="scanBtn" id="scanBtn" value="Scan"><br> -->
 
             Screen Cycle Time:<br>
             <input type="text" name="screenCycle" id="screenCycle" class="validText"><br>

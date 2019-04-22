@@ -1,18 +1,29 @@
+<!--*****************************************************************************
+          File: status.html
+   Description: Status Page, used to allow users to view the current status and send
+                messages to the controller. See https://github.com/jharmer95/Garage-RTC/
+                for details on the Open GarageRTC project.
+       Authors: Daniel Zajac,  danzajac@umich.edu
+                Jackson Harmer, jharmer@umich.edu
+
+*****************************************************************************-->
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <title>TestPage</title>
+    <title>GarageRTC Status</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- SocketIO (used for asynchronous callbacks) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
-
+    <!-- jQuery (used to easily access elements and perform operations on them) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <!-- Bootstrap (used for making the UI look nice) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
-    <!-- Local CSS -->
+    <!-- Custom stylesheet for status page -->
     <link href="../static/status.css" rel="stylesheet" type="text/css">
 </head>
 

@@ -4,7 +4,7 @@
                 https://github.com/jharmer95/Garage-RTC/ for details on the
                 Open GarageRTC project.
        Authors: Daniel Zajac,  danzajac@umich.edu
-                Jackson Harmer, harmer@umich.edu
+                Jackson Harmer, jharmer@umich.edu
 
 ***************************************************************************'''
 
@@ -21,7 +21,6 @@
 * Description: Flask is a microframework for Python based on Werkzeug, Jinja 2
 *              and good intentions. And before you ask: It's BSD licensed!
 ***************************************************************************'''
-from flask import Flask, render_template
 
 '''***************************************************************************
 *     Library: Flask Socket IO extentions
@@ -35,7 +34,6 @@ from flask import Flask, render_template
 *              and Swift, or any compatible client to establish a permanent
 *              connection to the server.
 ***************************************************************************'''
-from flask_socketio import SocketIO
 
 '''***************************************************************************
 *     Library: Python JSON library
@@ -44,7 +42,6 @@ from flask_socketio import SocketIO
 *     Version: 2.7
 * Description: Provides JSON encoding/decoding capabilities in Python
 ***************************************************************************'''
-import json
 
 '''***************************************************************************
 *     Library: Python Socket Library
@@ -53,7 +50,6 @@ import json
 *     Version: 2.7
 * Description: Provides networking sockets in Python.
 ***************************************************************************'''
-import socket
 
 '''***************************************************************************
 *     Library: sqlite3 Database Library
@@ -62,8 +58,12 @@ import socket
 *     Version: 2.7
 * Description: Provides SQL Lite database connectivity in python.
 ***************************************************************************'''
-import sqlite3
 
+from flask import Flask, render_template
+from flask_socketio import SocketIO
+import json
+import socket
+import sqlite3
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'vnkdjnfjknfl1232#'
 socketio = SocketIO(app)
@@ -71,8 +71,8 @@ socketio = SocketIO(app)
 STATUS_VALS = []
 SETTING_VALS = []
 BUF_STATUS_VALS = [{'name': 'lightStatus', 'value': False},
-                   {'name': 'doorStatus', 'value': False},
-                   {'name': 'alarmStatus', 'value': False}]
+                {'name': 'doorStatus', 'value': False},
+                {'name': 'alarmStatus', 'value': False}]
 UDP_IP = '192.168.1.155'
 UDP_PORT = 1234
 UDP_TIMEOUT = 1
@@ -80,39 +80,54 @@ UDP_TIMEOUT = 1
 
 @app.before_first_request
 def init():
+    """Initialization function to perform certain actions before a client can connect"""
     loadLocalSettings()
 
 
 @app.route('/')
 def sessions():
+    """Renders the root document (index.html)"""
     return render_template('index.html')
 
 
 def messageReceived(methods=['GET', 'POST']):
+    """Callback method to indicate a successful message was received"""
     print('message was received!!!')
 
 
 @app.route('/status')
 def status():
+    """Redirects the /status URL to render status.html"""
     return render_template('status.html')
 
 
 @app.route('/settings')
 def settings():
+    """Redirects the /settings URL to render settings.html"""
     return render_template('settings.html')
 
 
 @socketio.on('getStatus')
 def handle_getStatus_event():
+    """Sends the current status values to the client"""
     global STATUS_VALS
     socketio.emit('updateStatus', str(STATUS_VALS), callback=messageReceived)
 
+
 @socketio.on('refreshStatus')
 def handle_refreshStatus_event():
+    """Handles the refreshStatus even to fetch the status from the controller"""
     receiveStatus()
 
-# from https://stackoverflow.com/questions/13101653/python-convert-complex-dictionary-of-strings-from-unicode-to-ascii
+
 def convert(input):
+    """
+    from https://stackoverflow.com/questions/13101653/python-convert-complex-dictionary-of-strings-from-unicode-to-ascii
+    Converts unicode characters to ASCII to be compatible with the ESP32
+
+    :param input: object (dict, list) or unicode string to convert
+    :returns: converted ASCII string
+    """
     if isinstance(input, dict):
         return dict((convert(key), convert(value)) for key, value in input.iteritems())
     elif isinstance(input, list):
@@ -122,8 +137,14 @@ def convert(input):
     else:
         return input
 
+
 @socketio.on('setStatus')
 def handle_setStatus_event(jStr):
+    """
+    Handles the setStatus event to parse a JSON string and send it to the controller
+
+    :param jStr: JSON object to be parsed (format: list of dictionaries: {'name': <statusName>, 'value': <statusValue>})
+    """
     out = convert(jStr)
 
     for setting in out:
@@ -137,6 +158,7 @@ def handle_setStatus_event(jStr):
 
 @socketio.on('getSettings')
 def handle_getSettings_event():
+    """Handles the getSettings event to send the current configured setting values to the client"""
     global SETTING_VALS
 
     jStr = json.dumps(SETTING_VALS)
@@ -145,6 +167,11 @@ def handle_getSettings_event():
 
 @socketio.on('setSettings')
 def handle_setSettings_event(jStr):
+    """
+    Handles the setSettings even to update the current configured settings and store them in the database
+
+    :param jStr: a JSON object (format: list of dictionaries: {'name': <statusName>, 'value': <statusValue>})
+    """
     global SETTING_VALS
 
     conn = sqlite3.connect('data/settings.db')
@@ -165,6 +192,12 @@ def handle_setSettings_event(jStr):
 
 
 def sqlToDictList(results):
+    """
+    Converts the output of an SQL query to a list of dictionaries
+
+    :param results: Output of a SQL query (i.e. from a 'fetchall' command)
+    :returns: A list of dictionaries containing the data from the query
+    """
     outList = []
 
     for r in results:
@@ -177,6 +210,7 @@ def sqlToDictList(results):
 
 
 def loadLocalSettings():
+    """Loads local settings from the sqlite database"""
     global SETTING_VALS
 
     conn = sqlite3.connect('data/settings.db')
@@ -188,6 +222,7 @@ def loadLocalSettings():
 
 
 def updateLocalSettings():
+    """Updates web server settings like the UDP IP address, port, and the timeout"""
     global UDP_IP
     global UDP_PORT
     global UDP_TIMEOUT
@@ -198,6 +233,12 @@ def updateLocalSettings():
 
 
 def getSetting(name):
+    """
+    Returns the value of a specified setting
+
+    :param name: string containing the name of the desired setting
+    :returns: value of the desired setting
+    """
     global SETTING_VALS
 
     for val in SETTING_VALS:
@@ -208,6 +249,12 @@ def getSetting(name):
 
 
 def setStatus(name, value):
+    """
+    Adds status tuple to local buffer status values
+
+    :param name: Name of status to add
+    :param value: Value of named status
+    """
     global BUF_STATUS_VALS
 
     for val in BUF_STATUS_VALS:
@@ -218,6 +265,7 @@ def setStatus(name, value):
 
 
 def receiveStatus():
+    """Receives the current status from the controller and stores it in memory"""
     global STATUS_VALS
     global UDP_IP
     global UDP_PORT
@@ -242,24 +290,25 @@ def receiveStatus():
 
 
 def sendStatus():
+    """Sends current stored status to the controller"""
     global BUF_STATUS_VALS
     global UDP_IP
     global UDP_PORT
 
     jStr = json.dumps(BUF_STATUS_VALS)
-    print("sendStatus: " + str(BUF_STATUS_VALS));
+    print("sendStatus: " + str(BUF_STATUS_VALS))
     print('Sending message: "' + jStr + '" to IP: ' +
         str(UDP_IP) + ':' + str(UDP_PORT))
 
-    bitWiseValue = 0;
-    #convert to a bitwise operator:
+    bitWiseValue = 0
+    # convert to a bitwise operator:
     for var in BUF_STATUS_VALS:
         if var['name'] == "alarmStatus":
-            bitWiseValue = bitWiseValue | ( 0x1 & var['value'] )
+            bitWiseValue = bitWiseValue | (0x1 & var['value'])
         if var['name'] == "doorStatus":
-            bitWiseValue = bitWiseValue | ( var['value'] << 1 )
+            bitWiseValue = bitWiseValue | (var['value'] << 1)
         if var['name'] == "lightStatus":
-            bitWiseValue = bitWiseValue | ( var['value'] << 2 )
+            bitWiseValue = bitWiseValue | (var['value'] << 2)
 
     cmdStr = '{CMD:' + chr(bitWiseValue) + '}'
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

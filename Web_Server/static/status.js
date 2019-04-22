@@ -4,7 +4,7 @@
                 https://github.com/jharmer95/Garage-RTC/ for details on the
                 Open GarageRTC project.
        Authors: Daniel Zajac,  danzajac@umich.edu
-                Jackson Harmer, harmer@umich.edu
+                Jackson Harmer, jharmer@umich.edu
 
 *****************************************************************************/
 // Create socket
@@ -14,14 +14,17 @@ var time = 0;
 const getRate = 250;
 const refreshRate = 5000;
 
+// Triggers the getStatus event every x milliseconds
 window.setInterval(function () {
     socket.emit("getStatus");
 }, getRate);
 
+// Triggers the refreshStatus event every x milliseconds
 window.setInterval(function () {
     socket.emit("refreshStatus");
 }, refreshRate);
 
+// Adds the setStatus event to the click function of elements with the toggleBtn class
 $(document).ready(function () {
     $(".toggleBtn").click(function () {
         var tID = this.id;
@@ -29,6 +32,8 @@ $(document).ready(function () {
     });
 });
 
+// Handles the updateStatus event and changes the elements based on the new
+//  status values received from the server
 socket.on("updateStatus", function (msg) {
     var objs;
     if (typeof msg !== "string") {
@@ -37,11 +42,9 @@ socket.on("updateStatus", function (msg) {
     else {
         objs = JSON.parse(msg);
     }
-    console.log(objs);
 
     for (var i = 0; i < objs.length; ++i) {
         var itm = document.getElementById(objs[i].name);
-        console.log("tag: " + itm.tagName);
         switch (itm.tagName) {
             case "H3":
                 var t = objs[i].value.toString();

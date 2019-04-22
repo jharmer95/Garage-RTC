@@ -4,7 +4,7 @@
                 https://github.com/jharmer95/Garage-RTC/ for details on the
                 Open GarageRTC project.
        Authors: Daniel Zajac,  danzajac@umich.edu
-                Jackson Harmer, harmer@umich.edu
+                Jackson Harmer, jharmer@umich.edu
 
 *****************************************************************************/
 // Create socket
